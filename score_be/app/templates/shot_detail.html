@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+
+{% block title %}{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }} — Score{% endblock %}
+
+{% block content %}
+{% if demo_mode %}
+<div style="background:#f39c12;color:#fff;text-align:center;padding:6px 12px;font-size:12px;font-weight:bold;position:sticky;top:0;z-index:9999;letter-spacing:0.05em;">
+  ⚠️ DEMO DATA — 本番データではありません
+</div>
+{% endif %}
+<style>
+  body { background: linear-gradient(135deg, #E0F2FE 0%, #F3E8FF 50%, #FCE7F3 100%); color: rgb(30, 41, 59); }
+  .chat-panel { transition: transform 0.3s ease; }
+  .chat-panel.open { transform: translateX(0); }
+  .chat-panel.closed { transform: translateX(100%); }
+  .toast { transition: opacity 0.4s ease, transform 0.4s ease; }
+</style>
+
+{% include '_sidemenu.html' %}
+
+<!-- メインコンテンツ（サイドバー分オフセット） lang=ja -->
+<div class="ml-24 h-screen overflow-y-auto flex flex-col" lang="ja">
+
+  <!-- パンくずリスト + ヘッダー -->
+  <header class="sticky top-0 z-20 bg-white/40 backdrop-blur-xl border-b border-white/60 px-8 py-4">
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-2">
+      <a href="/projects" class="hover:text-indigo-600 transition-colors">プロジェクト一覧</a>
+      <span class="text-slate-300">›</span>
+      <a href="/project_detail/{{ project_id or 33 }}" class="hover:text-indigo-600 transition-colors"><span translate="no">{{ project_name or '-' }}</span></a>
+      <span class="text-slate-300">›</span>
+      <a href="/project_detail/{{ project_id or 33 }}" class="hover:text-indigo-600 transition-colors"><span translate="no">{{ seq_code or 'SEQ01' }}</span></a>
+      <span class="text-slate-300">›</span>
+      {% if isolated_task %}
+      <a href="/shot/{{ shot_id }}" class="hover:text-indigo-600 transition-colors" translate="no">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }}</a>
+      <span class="text-slate-300">›</span>
+      <span class="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg" translate="no">{{ task_name }}</span>
+      {% else %}
+      <span class="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg" translate="no">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }}</span>
+      {% endif %}
+    </nav>
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold text-slate-800">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }} — 作業詳細{% if isolated_task %}(<span translate="no">{{ task_name }}</span>){% endif %}</h1>
+      {% set _shot_code = shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) %}
+      {% if isolated_task and task_id %}
+        {# task page: task 専用 thread に遷移 #}
+        {% set _thread_key = 'task' ~ task_id %}
+        {% set _thread_label = _shot_code ~ ' ' ~ task_name ~ ' task thread' %}
+        {% set _thread_desc = 'この task に関連する人だけの thread (' ~ task_name ~ ' 担当 + 関連 Lead)' %}
+      {% else %}
+        {# shot page: SHOT 関係者全員 thread #}
+        {% set _thread_key = _shot_code.lower().replace('_', '') %}
+        {% set _thread_label = _shot_code ~ ' 関係者 thread' %}
+        {% set _thread_desc = 'この SHOT の関係者全員が話せる thread (PM/Director/Lead/全 task assignee)' %}
+      {% endif %}
+      <a
+        href="/messages?thread={{ _thread_key }}"
+        class="flex items-center gap-2 bg-white/40 backdrop-blur-sm border border-white/60 rounded-2xl px-4 py-2 text-slate-600 hover:text-indigo-500 hover:bg-white/40 transition-all shadow"
+        title="{{ _thread_desc }}"
+      >
+        <span class="text-xl">💬</span>
+        <span class="text-sm font-medium">{{ _thread_label }}</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- 3カラムレイアウト -->
+  <div class="flex flex-1 gap-6 p-8 pr-6">
+
+    <!-- 左カラム w-72 -->
+    <aside class="w-72 shrink-0 flex flex-col gap-6">
+
+      <!-- メタデータカード -->
+      <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6">
+        <div class="aspect-video rounded-2xl mb-6 bg-gradient-to-br from-amber-200 via-rose-300 to-orange-400 relative overflow-hidden flex items-end p-4">
+          <div class="flex items-center gap-3">
+            <span class="text-white text-lg font-black bg-black/30 rounded-xl px-4 py-2" translate="no">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }}</span>
+            {% set _ss = (shot.status | lower) if shot else 'in_review' %}
+            <span class="text-white text-xs font-black rounded-full px-3 py-1
+              {% if _ss == 'retake' %}bg-rose-500/80
+              {% elif _ss == 'approved' %}bg-emerald-500/80
+              {% elif _ss == 'in_progress' %}bg-blue-500/80
+              {% else %}bg-amber-400/80{% endif %}" translate="no">
+              {% if _ss == 'retake' %}🔴 Retake
+              {% elif _ss == 'approved' %}✅ Approved
+              {% elif _ss == 'in_progress' %}🔧 In Progress
+              {% else %}⚠️ Reviewing{% endif %}
+            </span>
+          </div>
+        </div>
+        <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">ショット情報</h2>
+        <dl class="space-y-3 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-slate-500">SHOT名</dt>
+            <dd class="font-semibold" translate="no">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">プロジェクト</dt>
+            <dd class="font-semibold" translate="no">{{ project_name or '-' }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">〆切</dt>
+            <dd class="font-semibold">2026-05-15</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-slate-500">フレーム数</dt>
+            <dd class="font-semibold">240F (10sec @ 24fps)</dd>
+          </div>
+          <div class="flex justify-between items-center pt-2 border-t border-white/60">
+            <dt class="text-slate-500">ステータス</dt>
+            <dd>
+              {% set _ss2 = (shot.status | lower) if shot else 'in_review' %}
+              {% if _ss2 == 'retake' %}
+              <span class="inline-flex items-center gap-1.5 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1 rounded-full">🔴 <span translate="no">Retake</span></span>
+              {% elif _ss2 == 'approved' %}
+              <span class="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full">✅ <span translate="no">Approved</span></span>
+              {% elif _ss2 == 'in_progress' %}
+              <span class="inline-flex items-center gap-1.5 bg-blue-100 text-blue-600 text-xs font-bold px-3 py-1 rounded-full">🔧 <span translate="no">In Progress</span></span>
+              {% elif _ss2 == 'in_review' %}
+              <span class="inline-flex items-center gap-1.5 bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1 rounded-full">⚠️ <span translate="no">In Review</span></span>
+              {% else %}
+              <span class="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1 rounded-full"><span translate="no">{{ _ss2 | capitalize }}</span></span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- アップストリーム可視化カード (全工程・context 保持) -->
+      <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6">
+        <h2 class="text-sm font-bold text-slate-800 mb-4">⬆️ アップストリーム工程</h2>
+        <div class="flex flex-col gap-2">
+          {% for task in (upstream_tasks or tasks) %}
+          {% set _tp = task.palette if task.palette is defined else None %}
+          <a href="/task/{{ task.task_id }}" class="flex items-center gap-3 p-3 rounded-2xl {{ (_tp.card_bg if _tp else 'bg-white/40') }} hover:brightness-105 transition-all border-l-4 {{ (_tp.border_accent if _tp else 'border-slate-200') }}
+            {% if task.status == 'retake' %} ring-2 ring-rose-300
+            {% elif task.status == 'reviewing' %} ring-2 ring-amber-300
+            {% endif %}">
+            <span class="text-lg">
+              {% if task.status == 'approved' %}✅
+              {% elif task.status == 'reviewing' %}⚠️
+              {% elif task.status == 'retake' %}🔄
+              {% elif task.status == 'open' %}⏳
+              {% else %}🔄
+              {% endif %}
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-semibold truncate {{ (_tp.label if _tp else 'text-slate-700') }}" translate="no">{{ task.name or task.type }}</div>
+              <div class="text-xs">
+                <span class="inline-block px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ (_tp.type_badge_bg if _tp else 'bg-slate-100') }} {{ (_tp.type_badge_text if _tp else 'text-slate-500') }}" translate="no">{{ task.type }}</span>
+              </div>
+              <div class="text-xs font-medium
+                {% if task.status in ('approved','completed','done') %}text-emerald-600
+                {% elif task.status == 'reviewing' %}text-amber-600
+                {% elif task.status in ('retake',) %}text-rose-600
+                {% else %}text-slate-500
+                {% endif %}" translate="no">{{ task.status | capitalize }}</div>
+            </div>
+          </a>
+          {% if not loop.last %}
+          <div class="flex justify-center text-slate-300 text-lg leading-none
+            {% if task.status == 'reviewing' or task.status == 'retake' %}text-amber-600{% endif %}">↓</div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- 中央カラム flex-1 -->
+    <main class="flex-1 flex flex-col gap-6">
+
+      <!-- ヘッダー行 -->
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-800">🎬 アセット履歴 ({{ tasks|length }} 工程)</h2>
+      </div>
+
+      <!-- アセットカードグリッド: 全工程 (Animation/Lighting/FX/MattePaint/Composite 等) -->
+      <div class="grid grid-cols-2 gap-6">
+
+        {% for task in tasks %}
+        {% set _t = task.type %}
+        {% set _s = task.status | lower %}
+        {% set _is_retake = (_s == 'retake') %}
+        {% set _is_reviewing = (_s == 'reviewing') %}
+        {% set _is_approved = (_s == 'approved') %}
+        {% set _is_open = (_s == 'open') %}
+        {% set _tp = task.palette if task.palette is defined else None %}
+        <a href="/qc/{{ shot_id }}?task_id={{ task.task_id }}" class="block {{ (_tp.card_bg if _tp else 'bg-white/40') }} backdrop-blur-xl border-2 {{ (_tp.card_border if _tp else 'border-white/60') }} rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl hover:scale-[1.01] transition-all
+          {% if _is_reviewing %}ring-2 ring-amber-400/40{% endif %}">
+          <div class="aspect-video rounded-2xl mb-3
+            {% if _is_retake %}bg-gradient-to-br from-amber-200 via-rose-300 to-orange-400 border-2 border-red-400
+            {% elif _is_reviewing %}bg-gradient-to-br from-amber-200 via-rose-300 to-orange-400
+            {% elif _is_approved %}bg-gradient-to-br from-blue-200 to-amber-200
+            {% else %}bg-gradient-to-br from-slate-200 to-slate-300
+            {% endif %} relative overflow-hidden flex items-end p-2">
+            <span class="text-white text-xs font-bold bg-black/30 rounded px-2 py-0.5" translate="no">{{ _t }}_v04.exr</span>
+          </div>
+          <div class="px-5 pb-5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="font-bold {{ (_tp.label if _tp else 'text-slate-800') }}" translate="no">{{ _t }}_v04</span>
+              {% if _is_approved %}
+              <span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-600 text-xs font-bold px-3 py-1 rounded-full">✅ <span translate="no">Approved</span></span>
+              {% elif _is_reviewing %}
+              <span class="inline-flex items-center gap-1 bg-amber-100 text-amber-600 text-xs font-bold px-3 py-1 rounded-full">⚠️ <span translate="no">Reviewing</span></span>
+              {% elif _is_retake %}
+              <span class="inline-flex items-center gap-1 bg-rose-100 text-rose-600 text-xs font-bold px-3 py-1 rounded-full">🔴 <span translate="no">Retake</span></span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1 rounded-full">⏳ <span translate="no">Open</span></span>
+              {% endif %}
+            </div>
+            {% set _names = {1:'Tanaka',10:'Yamada',20:'Kato',30:'Sato',40:'Suzuki',99:'Ryoji'} %}
+            <p class="text-xs text-slate-500">by <span translate="no">{{ _names.get(task.assignee_id, 'user_' + (task.assignee_id|string)) }}</span> | 2026-05-10</p>
+            {% if _is_retake %}
+            <div class="mt-3 bg-rose-50 border-l-4 border-rose-400 rounded-r-2xl p-3 text-sm text-rose-600">
+              「空気感をもっと夕方に。光量を落として、夕焼けの黄金色を強めに。」
+              <p class="text-xs text-rose-600/70 mt-1">— <span translate="no">Director Yamada</span></p>
+            </div>
+            <div class="mt-2">
+              <a href="/reference/{{ shot_id }}?task_id={{ task.task_id }}"
+                 class="flex items-center gap-1.5 bg-indigo-100 border border-indigo-300 rounded-xl px-3 py-2 text-xs font-bold text-indigo-600 hover:bg-indigo-200 transition-all">
+                📎 参考資料 8件を閲覧 →
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </a>
+        {% endfor %}
+
+      </div>
+
+      <!-- 変更申請ボタン -->
+      <div class="flex justify-end mt-2">
+        <button
+          onclick="openModal()"
+          class="bg-white/40 backdrop-blur-sm border border-white/60 text-slate-800 font-semibold px-6 py-2.5 rounded-2xl shadow hover:bg-white/40 hover:text-indigo-500 transition-all"
+        >
+          📝 変更申請
+        </button>
+      </div>
+
+
+      <!-- 配布モーダル (Look 配布等の task action) -->
+      <div id="distributeModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onclick="closeDistributeModal(event)">
+        <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-6 w-[28rem] max-w-full" onclick="event.stopPropagation()">
+          <div class="flex items-start justify-between mb-4">
+            <h3 class="text-lg font-black text-slate-800">📦 配布 — 関係者へ通知</h3>
+            <button onclick="closeDistributeModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">配布物(Look/LUT/参考資料等)を関係者全員のメッセージ受信箱へ通知します。</p>
+          <form onsubmit="submitDistribute(event)" class="space-y-3">
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">配布物 タイプ</label>
+              <select name="dist_type" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                <option value="look_lut">Look / LUT (Lighting 配布)</option>
+                <option value="reference">参考資料</option>
+                <option value="comp_template">Comp テンプレ・素材</option>
+                <option value="other">その他</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">バージョン名</label>
+              <input type="text" name="version" placeholder="例: Look_v05" value="Look_v05"
+                class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">配布範囲 (関係者全員 / カスタム)</label>
+              <select name="recipients" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                <option value="all_stakeholders">関係者全員(Director/PM/後輩/関連工程担当)</option>
+                <option value="project_members">プロジェクト全メンバー</option>
+                <option value="downstream_only">後工程担当のみ(Compositor 等)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">配布メッセージ</label>
+              <textarea name="message" rows="3" placeholder="例: Look_v05 公開しました。Composite 工程は v05 LUT を適用してください。"
+                class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">Look_v05 を公開しました。各工程は本バージョンに切替てください。</textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" onclick="closeDistributeModal()" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-800">キャンセル</button>
+              <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl px-5 py-2">🚀 配布実行</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      function showDistributeModal() { document.getElementById('distributeModal').classList.remove('hidden'); }
+      function closeDistributeModal(ev) {
+        if (ev && ev.target.id !== 'distributeModal') return;
+        document.getElementById('distributeModal').classList.add('hidden');
+      }
+      async function submitDistribute(ev) {
+        ev.preventDefault();
+        const fd = new FormData(ev.target);
+        const body = {
+          shot_id: {{ shot_id or 1 }},
+          {% if task_id %}task_id: {{ task_id }},{% endif %}
+          dist_type: fd.get('dist_type'),
+          version: fd.get('version'),
+          recipients_scope: fd.get('recipients'),
+          message: fd.get('message') || '',
+          submitted_at: new Date().toISOString(),
+        };
+        try {
+          const resp = await fetch('/api/bff/look_distributions', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const data = await resp.json();
+          alert(`✅ 配布を実行しました (DB 永続化済: id=${data.id})\n配布物: ${body.version} (${body.dist_type})\n配布範囲: ${body.recipients_scope}\n\n関係者のメッセージ受信箱へ通知済`);
+          closeDistributeModal();
+        } catch (e) {
+          alert('❌ 配布失敗: ' + e.message);
+        }
+      }
+      </script>
+
+      <!-- レビュー依頼モーダル -->
+      <div id="reviewRequestModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onclick="closeReviewRequestModal(event)">
+        <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-6 w-96 max-w-full" onclick="event.stopPropagation()">
+          <div class="flex items-start justify-between mb-4">
+            <h3 class="text-lg font-black text-slate-800">👁 レビュー依頼</h3>
+            <button onclick="closeReviewRequestModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+          </div>
+          <p class="text-xs text-slate-500 mb-4">本 task のレビュー依頼を上位レビュアへ送信します。</p>
+          <form onsubmit="submitReviewRequest(event)" class="space-y-3">
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">依頼先</label>
+              <select name="reviewer" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                <option value="director">Director Yamada（最終 Approve 権限）</option>
+                <option value="lead_kato">Lighting Lead Kato（部内 LookDev 観点）</option>
+                <option value="pm_tanaka">PM Tanaka（進捗確認のみ）</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">レビュー観点</label>
+              <select name="focus" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                <option>仕上がり全体の確認</option>
+                <option>色味・LookDev</option>
+                <option>動きの自然さ・タイミング</option>
+                <option>テクニカル品質</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-bold text-slate-600 mb-1 block">伝言メッセージ (任意)</label>
+              <textarea name="message" rows="3" placeholder="例: 夕方ライティング調整しました。確認お願いします。"
+                class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" onclick="closeReviewRequestModal()" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-800">キャンセル</button>
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl px-5 py-2">🚀 送信</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      function showReviewRequestModal() { document.getElementById('reviewRequestModal').classList.remove('hidden'); }
+      function closeReviewRequestModal(ev) {
+        if (ev && ev.target.id !== 'reviewRequestModal') return;
+        document.getElementById('reviewRequestModal').classList.add('hidden');
+      }
+      async function submitReviewRequest(ev) {
+        ev.preventDefault();
+        const fd = new FormData(ev.target);
+        const reviewer = fd.get('reviewer');
+        const focus = fd.get('focus');
+        const message = fd.get('message') || '';
+        // /api/bff/messages 経由でレビュー依頼を送信 (type:review_request の metadata 付与)
+        const body = {
+          type: 'review_request',
+          shot_id: {{ shot_id or 1 }},
+          {% if task_id %}task_id: {{ task_id }},{% endif %}
+          recipient: reviewer,
+          focus: focus,
+          body: `📋 レビュー依頼\n依頼先: ${reviewer}\nレビュー観点: ${focus}\n\n${message || '(伝言なし)'}`,
+          submitted_at: new Date().toISOString(),
+        };
+        try {
+          const resp = await fetch('/api/bff/messages', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const data = await resp.json();
+          alert(`✅ レビュー依頼を送信しました (DB 永続化済: id=${data.id})\n依頼先: ${reviewer}\n観点: ${focus}`);
+          closeReviewRequestModal();
+        } catch (e) {
+          alert('❌ 送信失敗: ' + e.message);
+        }
+      }
+      </script>
+
+
+    </main>
+
+  </div><!-- /3カラム -->
+
+</div><!-- /メインコンテンツ -->
+
+<!-- スライドインチャット撤去 — /messages に統合 -->
+
+
+<!-- ===== 変更申請モーダル ===== -->
+<div
+  id="change-modal"
+  class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+  onclick="closeModalOutside(event)"
+>
+  <div class="bg-slate-800/90 backdrop-blur-xl border border-white/60 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl" onclick="event.stopPropagation()">
+    <h3 class="text-lg font-bold text-white mb-6">📝 変更申請</h3>
+    <div class="space-y-5">
+      <div>
+        <label class="block text-sm font-semibold text-white/60 mb-1">理由</label>
+        <textarea rows="3" placeholder="〆切調整の理由を記入"
+          class="w-full bg-white/40 border border-white/60 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-white placeholder-white/30 resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-white/60 mb-1">希望〆切</label>
+        <input type="date" class="w-full bg-white/40 border border-white/60 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-white" />
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-white/60 mb-1">補足</label>
+        <textarea rows="2" class="w-full bg-white/40 border border-white/60 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-white resize-none"></textarea>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-7">
+      <button onclick="submitModal()" class="flex-1 bg-indigo-600 text-white font-semibold rounded-2xl py-3 hover:bg-indigo-700 transition-colors">PMに送信</button>
+      <button onclick="closeModal()" class="flex-1 bg-white/40 text-slate-800 font-semibold rounded-2xl py-3 hover:bg-white/40 transition-colors">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 技術トラブル報告モーダル -->
+<div id="modal-trouble" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+  <div class="bg-slate-800/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6 w-96">
+    <p class="text-lg font-black text-white mb-4">🚨 技術トラブル報告</p>
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">トラブル種別</label>
+      <select class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
+        <option>シーン破損</option>
+        <option>レンダリング障害</option>
+        <option>アセット欠損</option>
+        <option>その他</option>
+      </select>
+    </div>
+    <div class="mb-4">
+      <label class="text-xs font-bold text-white/60 mb-1 block">詳細説明</label>
+      <textarea class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white h-20 resize-none" placeholder="発生状況・タイムコード・症状を記入"></textarea>
+    </div>
+    <div id="trouble-sent" class="hidden mb-3 text-sm font-bold text-emerald-600 bg-emerald-500/10 rounded-xl p-3">
+      ✅ <span translate="no">Kato</span> に報告しました
+    </div>
+    <div class="flex gap-2">
+      <button onclick="submitTrouble()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl py-2 text-sm transition-all">📤 <span translate="no">Kato</span> に報告する</button>
+      <button onclick="closeTroubleModal()" class="flex-1 bg-white/40 hover:bg-white/40 text-white font-bold rounded-2xl py-2 text-sm border border-white/60 transition-all">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- トースト通知 -->
+<div
+  id="toast"
+  class="toast fixed bottom-28 right-8 bg-emerald-600 text-white text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl opacity-0 translate-y-4 pointer-events-none z-50"
+>
+  ✅ PM Tanaka に送信しました
+</div>
+
+<script>
+  function toggleChat() {
+    const panel = document.getElementById('chat-panel');
+    if (panel.classList.contains('closed')) {
+      panel.classList.remove('closed');
+      panel.classList.add('open');
+    } else {
+      panel.classList.remove('open');
+      panel.classList.add('closed');
+    }
+  }
+
+  function openModal() {
+    document.getElementById('change-modal').classList.remove('hidden');
+    document.getElementById('change-modal').classList.add('flex');
+  }
+
+  function closeModal() {
+    document.getElementById('change-modal').classList.add('hidden');
+    document.getElementById('change-modal').classList.remove('flex');
+  }
+
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById('change-modal')) closeModal();
+  }
+
+  function submitModal() {
+    closeModal();
+    const toast = document.getElementById('toast');
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(16px)';
+    }, 3000);
+  }
+
+  function showTroubleModal() {
+    document.getElementById('modal-trouble').classList.remove('hidden');
+    document.getElementById('trouble-sent').classList.add('hidden');
+  }
+  function submitTrouble() {
+    document.getElementById('trouble-sent').classList.remove('hidden');
+  }
+  function closeTroubleModal() {
+    document.getElementById('modal-trouble').classList.add('hidden');
+  }
+
+  if (new URLSearchParams(location.search).get('chat') === 'open') {
+    document.addEventListener('DOMContentLoaded', () => {
+      const panel = document.getElementById('chat-panel');
+      if (panel) {
+        panel.classList.remove('closed');
+        panel.classList.add('open');
+      }
+    });
+  }
+</script>
+
+{% endblock %}

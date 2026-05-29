@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Mock state (demo runtime state)
+app/data/score_mock_state.yaml
+
+# Secrets (added 2026-05-29)
+.env
+.env.local

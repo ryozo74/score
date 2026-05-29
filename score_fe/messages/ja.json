@@ -1,0 +1,134 @@
+{
+  "login": {
+    "title": "Score にログイン",
+    "email": "メールアドレス",
+    "password": "パスワード",
+    "submit": "ログイン",
+    "or": "または",
+    "google": "Google アカウントで続ける",
+    "admin_note": "管理者（PM）の方は → Calendar アプリ（フル権限）",
+    "role_note": "その他のロールは Score 経由で自分の予定のみ閲覧",
+    "next_scene": "次の場面へ →",
+    "error": "メールアドレスまたはパスワードが正しくありません"
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "greeting": "おはよう、{name} さん",
+    "subtitle": "本日のSHOT一覧は下記のタスクセクションをご確認ください",
+    "loading": "読み込み中...",
+    "error": {
+      "calendar_down": "Calendarサービスに接続できません（RUNBOOK §4参照）"
+    },
+    "notifications": "通知 & アラート",
+    "ai_proposals": "AI スケジュール提案（本日のアサインより）",
+    "ai_note": "本日 PM がアサインしたタスクから、AI が最適な進め方を提案"
+  },
+  "shot": {
+    "list": "本日のタスク",
+    "detail": {
+      "title": "SHOTの詳細",
+      "tasks": "タスク一覧",
+      "no_tasks": "タスクはありません",
+      "back": "ダッシュボードに戻る",
+      "loading": "読み込み中..."
+    }
+  },
+  "qc": {
+    "detail": {
+      "title": "QCビューア",
+      "tasks": "タスク一覧",
+      "no_tasks": "タスクはありません",
+      "back": "ダッシュボードに戻る",
+      "loading": "読み込み中..."
+    }
+  },
+  "routine": {
+    "title": "ルーティン",
+    "description": "朝のルーティン確認",
+    "loading": "読み込み中...",
+    "back": "ダッシュボードに戻る"
+  },
+  "exitReport": {
+    "title": "退勤報告",
+    "currentMode": "本日退勤",
+    "previousMode": "前日振返り",
+    "loading": "読み込み中...",
+    "back": "ダッシュボードに戻る"
+  },
+  "messages": {
+    "title": "メッセージ",
+    "empty": "メッセージはありません",
+    "loading": "読み込み中...",
+    "back": "ダッシュボードに戻る"
+  },
+  "goodbye": {
+    "title": "お疲れ様でした",
+    "message": "退勤打刻が完了しました。",
+    "back": "ログイン画面に戻る"
+  },
+  "exit_report": {
+    "title": "退勤レポート"
+  },
+  "nav": {
+    "dashboard": "ホーム",
+    "shot_detail": "SHOT詳細",
+    "routine": "ルーティン",
+    "messages": "メッセージ",
+    "exit_report": "退勤",
+    "notifications": "通知"
+  },
+  "lang": {
+    "ja": "日本語",
+    "en": "English",
+    "select": "言語を選択"
+  },
+  "index": {
+    "title": "章ハブ",
+    "subtitle": "Sato（Composite担当）の1日をブラウザで追体験できます。",
+    "storyFlow": "物語動線（順に体験）",
+    "chapters": {
+      "prologue": { "label": "序章", "title": "ログイン", "desc": "Satoとして出勤" },
+      "act1": { "label": "第一幕", "title": "朝ルーティン", "desc": "今日のタスクを確認" },
+      "act2": { "label": "第二幕", "title": "退勤前確認", "desc": "昨日のタスク振り返り" },
+      "act3": { "label": "第三幕", "title": "ダッシュボード", "desc": "今日のSHOT一覧" },
+      "act4": { "label": "第四幕", "title": "SHOT詳細", "desc": "タスクをQCへ" }
+    },
+    "fullStory": {
+      "title": "完全ストーリーを体験",
+      "desc": "上から順に辿ると1日の流れが分かります",
+      "cta": "ログインから始める"
+    }
+  },
+  "reference": {
+    "detail": {
+      "title": "リファレンス",
+      "tasks": "タスク一覧",
+      "no_tasks": "タスクがありません",
+      "back": "ダッシュボードに戻る",
+      "loading": "読み込み中..."
+    }
+  },
+  "cross": {
+    "projects": {
+      "title": "クロスプロジェクト",
+      "subtitle": "全プロジェクト・ショット概要",
+      "projectsList": "プロジェクト一覧",
+      "shotsSummary": "ショット一覧",
+      "noProjects": "プロジェクトが見つかりません",
+      "noShots": "ショットが見つかりません",
+      "progressLabel": "進捗"
+    },
+    "tracker": {
+      "title": "プロダクション進行",
+      "subtitle": "ショット・リテイク・トラブル管理",
+      "shots": "ショット",
+      "retakes": "リテイク",
+      "troubles": "トラブル",
+      "resolved": "解決済",
+      "unresolved": "未解決",
+      "emptyTitle": "データなし",
+      "emptyDesc": "現在データはありません",
+      "projectIdLabel": "プロジェクトID"
+    }
+  }
+}

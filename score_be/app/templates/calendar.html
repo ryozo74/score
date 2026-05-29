@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score — Calendar</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen bg-gradient-to-br from-[#E0F2FE] via-[#F3E8FF] to-[#FCE7F3] flex overflow-hidden">
+{% if demo_mode %}
+<div style="background:#f39c12;color:#fff;text-align:center;padding:6px 12px;font-size:12px;font-weight:bold;position:fixed;top:0;left:0;right:0;z-index:9999;letter-spacing:0.05em;">
+  ⚠️ DEMO DATA — 本番データではありません
+</div>
+{% endif %}
+{% include '_sidemenu.html' %}
+
+  <!-- メインエリア (sidemenu fixed ゆえ ml-24 で offset) -->
+  <main class="flex-1 ml-24 overflow-y-auto p-8">
+
+    <!-- Google 同期エリア -->
+    <div class="flex items-center gap-3 mb-4">
+      <button onclick="syncGoogle()" class="flex items-center gap-2 bg-white/50 backdrop-blur-xl border border-white/60 rounded-2xl px-4 py-2 text-sm font-bold text-slate-700 hover:bg-white/70 shadow transition-all">
+        📤 Google カレンダーへエクスポート
+      </button>
+      <p class="text-xs text-slate-500">Google: 接続済 ✅ sato@gmail.com <span class="ml-1 text-slate-400">前回: 2026-05-10 19:30</span></p>
+    </div>
+
+    <!-- タイトル -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-black text-slate-800">📅 {{ (user.name if user and user.name else (user.email.split('@')[0] if user and user.email else 'ユーザ')) }} のスケジュール<span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-bold ml-2">🔒 自分の予定のみ（Score API 経由）</span></h1>
+      <p class="text-sm text-slate-500 mt-1">2026-05-10 〜 2026-05-16</p>
+    </div>
+
+    <!-- Calendar BE 経由 イベント一覧 (動的・実 data) -->
+    {% if events %}
+    <section class="mb-6 bg-white/60 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5">
+      <h2 class="text-sm font-black text-slate-800 mb-3">📡 Calendar BE 経由 イベント({{ events|length }} 件 — 実 data)</h2>
+      <ul class="space-y-2 max-h-60 overflow-y-auto">
+        {% for ev in events[:15] %}
+        <li class="flex items-center gap-3 bg-white/50 border border-slate-200 rounded-xl px-3 py-2">
+          <span class="text-xs font-bold text-indigo-600 w-32 shrink-0">{{ ev.get('start_time', ev.get('date', '?'))[:16] if ev.get('start_time') or ev.get('date') else '?' }}</span>
+          <span class="flex-1 text-sm text-slate-800">{{ ev.get('title') or ev.get('name') or '-' }}</span>
+          {% if ev.get('meeting_url') %}<a href="{{ ev.get('meeting_url') }}" target="_blank" class="text-xs text-blue-600 hover:underline">📹 join</a>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if events|length > 15 %}<p class="text-xs text-slate-400 mt-2">他 {{ events|length - 15 }} 件</p>{% endif %}
+    </section>
+    {% else %}
+    <section class="mb-6 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3">
+      <p class="text-xs text-amber-700">📡 Calendar BE 経由 events なし(/api/calendar/events 0 件)</p>
+    </section>
+    {% endif %}
+
+    <!-- 動的週ビュー: 先週・今週・来週 (3 週分) — 前後週は薄目で表示 -->
+    {% macro week_row(week, label, dim) -%}
+      {% if week %}
+      <div class="mb-4 {% if dim %}opacity-50{% endif %}">
+        <p class="text-[11px] font-black {% if dim %}text-slate-400{% else %}text-indigo-700{% endif %} uppercase tracking-widest mb-2">{{ label }}</p>
+        <div class="grid grid-cols-7 gap-2">
+          {% for day in week %}
+          <div>
+            <div class="{% if day.is_today %}bg-indigo-100{% elif day.is_holiday %}bg-rose-100{% else %}bg-white/40 backdrop-blur-xl border border-white/60{% endif %} rounded-2xl px-2 py-2 text-center mb-2">
+              <p class="text-xs font-bold {% if day.is_holiday %}text-rose-500{% else %}text-slate-500{% endif %}">{{ day.weekday }}</p>
+              {% if day.is_today %}
+              <div class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-sm mx-auto">{{ day.day }}</div>
+              {% else %}
+              <p class="text-lg font-black {% if day.is_holiday %}text-rose-400{% else %}text-slate-700{% endif %}">{{ day.day }}</p>
+              {% endif %}
+              {% if day.holiday_name %}<span class="text-[9px] bg-rose-100 text-rose-600 font-bold rounded px-1 mt-0.5 inline-block">{{ day.holiday_name }}</span>{% endif %}
+            </div>
+            <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl p-2 {% if dim %}min-h-24{% else %}min-h-40{% endif %} flex flex-col gap-1">
+              {% if day.events %}
+              {% for ev in day.events[:5] %}
+              {% set _has_url = ev.get('meeting_url') %}
+              {% set _time = (ev.get('start_time') or ev.get('time') or '')[:5] if ev.get('start_time') or ev.get('time') else '' %}
+              {% if _has_url %}
+              <a href="{{ _has_url }}" target="_blank" class="block w-full text-left bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl px-2 py-1 text-xs transition-colors truncate" title="{{ ev.title }}">{% if _time %}{{ _time }} {% endif %}<span translate="no">{{ ev.title }}</span></a>
+              {% else %}
+              <div class="bg-slate-50 border border-slate-100 rounded-xl px-2 py-1 text-xs truncate" title="{{ ev.title }}">{% if _time %}{{ _time }} {% endif %}<span translate="no">{{ ev.title }}</span></div>
+              {% endif %}
+              {% endfor %}
+              {% if day.events|length > 5 %}<p class="text-[9px] text-slate-400">他 {{ day.events|length - 5 }} 件</p>{% endif %}
+              {% else %}
+              <p class="text-slate-300 italic text-[10px] mt-2">{% if day.is_holiday %}休日{% else %}予定なし{% endif %}</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    {%- endmacro %}
+
+    {% if this_week or week_grid %}
+    {{ week_row(last_week, '先週', true) }}
+    {{ week_row(this_week or week_grid, '今週', false) }}
+    {{ week_row(next_week, '来週', true) }}
+    {% else %}
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-6 text-center">
+      <p class="text-sm text-amber-700">📡 今週の Calendar イベントは見つかりませんでした</p>
+      <p class="text-[10px] text-slate-400 mt-1">上の動的イベント一覧では他期間の events が表示されている場合があります</p>
+    </div>
+    {% endif %}
+  </main>
+
+  <!-- 旧 demo storyline modal + JS dict は削除 (2026-05-27 動的化完了) -->
+
+  <!-- Google 同期モーダル -->
+  <div id="modal-sync" class="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    <div class="bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-8 w-80 text-center">
+      <div id="sync-progress">
+        <p class="text-lg font-black text-slate-800 mb-3">📤 Google カレンダーへエクスポート中…</p>
+        <div class="w-full bg-slate-200 rounded-full h-2 mb-2"><div id="sync-bar" class="bg-indigo-500 h-2 rounded-full w-4/5"></div></div>
+        <p class="text-xs text-slate-500">80%</p>
+      </div>
+      <div id="sync-done" class="hidden">
+        <p class="text-lg font-black text-emerald-700 mb-3">✅ エクスポート完了</p>
+        <ul class="text-sm text-slate-600 text-left mb-4 space-y-1">
+          <li>• 5 件を Google カレンダーへエクスポート</li>
+          <li>• 1 件のエクスポートが完了</li>
+        </ul>
+        <button onclick="closeSyncModal()" class="bg-indigo-600 text-white rounded-2xl px-6 py-2 font-bold text-sm hover:bg-indigo-700 transition-all">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- mini-footer Language button -->
+  
+
+  <!-- language-modal -->
+  <div id="language-modal" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-[999]" onclick="document.getElementById('language-modal').classList.add('hidden')">
+    <div class="bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl p-8 w-80 text-center" onclick="event.stopPropagation()">
+      <h3 class="text-lg font-black text-slate-800 mb-6">🌐 言語を選択</h3>
+      <div class="flex flex-col gap-3">
+        <button class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl text-sm transition-all">繁體中文</button>
+        <button class="w-full py-3 bg-indigo-600 text-white font-bold rounded-2xl text-sm cursor-default">日本語（現在）</button>
+        <button class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl text-sm transition-all">English</button>
+      </div>
+      <p class="text-xs text-slate-400 mt-4">段階的に拡張中</p>
+    </div>
+  </div>
+
+  <script>
+    function openLanguageModal() {
+      document.getElementById('language-modal').classList.remove('hidden');
+    }
+    function syncGoogle() {
+      document.getElementById('modal-sync').classList.remove('hidden');
+      document.getElementById('sync-progress').classList.remove('hidden');
+      document.getElementById('sync-done').classList.add('hidden');
+      setTimeout(function() {
+        document.getElementById('sync-progress').classList.add('hidden');
+        document.getElementById('sync-done').classList.remove('hidden');
+      }, 2000);
+    }
+    function closeSyncModal() {
+      document.getElementById('modal-sync').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

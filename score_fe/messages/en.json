@@ -1,0 +1,134 @@
+{
+  "login": {
+    "title": "Sign in to Score",
+    "email": "Email Address",
+    "password": "Password",
+    "submit": "Sign In",
+    "or": "or",
+    "google": "Continue with Google",
+    "admin_note": "Admin (PM) → Calendar app (full access)",
+    "role_note": "Other roles can view their own schedule via Score",
+    "next_scene": "Next Scene →",
+    "error": "Incorrect email address or password"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "greeting": "Good morning, {name}",
+    "subtitle": "Please check the task section below for today's SHOT list",
+    "loading": "Loading...",
+    "error": {
+      "calendar_down": "Cannot connect to Calendar service (see RUNBOOK §4)"
+    },
+    "notifications": "Notifications & Alerts",
+    "ai_proposals": "AI Schedule Proposals (from today's assignments)",
+    "ai_note": "AI proposes the best approach from tasks assigned by PM today"
+  },
+  "shot": {
+    "list": "Today's Tasks",
+    "detail": {
+      "title": "SHOT Detail",
+      "tasks": "Task List",
+      "no_tasks": "No tasks",
+      "back": "Back to Dashboard",
+      "loading": "Loading..."
+    }
+  },
+  "qc": {
+    "detail": {
+      "title": "QC Viewer",
+      "tasks": "Task List",
+      "no_tasks": "No tasks",
+      "back": "Back to Dashboard",
+      "loading": "Loading..."
+    }
+  },
+  "routine": {
+    "title": "Routine",
+    "description": "Morning routine check",
+    "loading": "Loading...",
+    "back": "Back to Dashboard"
+  },
+  "exitReport": {
+    "title": "Exit Report",
+    "currentMode": "Today's Exit",
+    "previousMode": "Previous Day Review",
+    "loading": "Loading...",
+    "back": "Back to Dashboard"
+  },
+  "messages": {
+    "title": "Messages",
+    "empty": "No messages",
+    "loading": "Loading...",
+    "back": "Back to Dashboard"
+  },
+  "goodbye": {
+    "title": "Good Work Today",
+    "message": "Your clock-out has been recorded.",
+    "back": "Back to Login"
+  },
+  "exit_report": {
+    "title": "Exit Report"
+  },
+  "nav": {
+    "dashboard": "Home",
+    "shot_detail": "SHOT Detail",
+    "routine": "Routine",
+    "messages": "Messages",
+    "exit_report": "Exit",
+    "notifications": "Notifications"
+  },
+  "lang": {
+    "ja": "日本語",
+    "en": "English",
+    "select": "Select Language"
+  },
+  "index": {
+    "title": "Chapter Hub",
+    "subtitle": "Experience a day in the life of Sato (Composite) in your browser.",
+    "storyFlow": "Story Flow (experience in order)",
+    "chapters": {
+      "prologue": { "label": "Prologue", "title": "Login", "desc": "Clock in as Sato" },
+      "act1": { "label": "Act 1", "title": "Morning Routine", "desc": "Check today's tasks" },
+      "act2": { "label": "Act 2", "title": "End-of-Day Check", "desc": "Review yesterday's tasks" },
+      "act3": { "label": "Act 3", "title": "Dashboard", "desc": "Today's SHOT list" },
+      "act4": { "label": "Act 4", "title": "SHOT Detail", "desc": "Send tasks to QC" }
+    },
+    "fullStory": {
+      "title": "Experience the Full Story",
+      "desc": "Follow from top to bottom to understand the day's flow",
+      "cta": "Start from Login"
+    }
+  },
+  "reference": {
+    "detail": {
+      "title": "Reference",
+      "tasks": "Task List",
+      "no_tasks": "No tasks",
+      "back": "Back to Dashboard",
+      "loading": "Loading..."
+    }
+  },
+  "cross": {
+    "projects": {
+      "title": "Cross Projects",
+      "subtitle": "All projects and shots overview",
+      "projectsList": "Projects",
+      "shotsSummary": "Shots",
+      "noProjects": "No projects found",
+      "noShots": "No shots found",
+      "progressLabel": "Progress"
+    },
+    "tracker": {
+      "title": "Production Tracker",
+      "subtitle": "Shots, retakes and trouble management",
+      "shots": "Shots",
+      "retakes": "Retakes",
+      "troubles": "Troubles",
+      "resolved": "Resolved",
+      "unresolved": "Unresolved",
+      "emptyTitle": "No data",
+      "emptyDesc": "No data available",
+      "projectIdLabel": "Project ID"
+    }
+  }
+}
