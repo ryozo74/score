@@ -410,18 +410,94 @@ class CalendarClient:
         resp.raise_for_status()
         return {"ok": True, "asset_id": asset_id, "response": resp.text}
 
+    def get_project_roles(self, project_id: int, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-05 (nibu Phase 2 EP): GET /api/projects/{id}/roles
+        Response: {role_name: user_id, ...} (role 毎 first-wins・例 {"director": 53, "pm": 52})
+        404 (project 不在) の場合 {} 返却。"""
+        try:
+            resp = httpx.get(
+                f"{self.base_url}/api/projects/{project_id}/roles",
+                headers=self._headers(actor_user_id),
+                timeout=10.0,
+            )
+            if resp.status_code == 404:
+                return {}
+            resp.raise_for_status()
+            return resp.json() or {}
+        except Exception:
+            return {}
+
     def get_project_directors(self, project_id: int, actor_user_id: str | None = None) -> list:
-        """GET /api/projects/{id} → director uid 取得 (暫定: [] 返す・nibu 御回答後 cmd_474 実装)"""
-        return []  # TODO: Calendar DM thread endpoint 確定後に実装
+        """get_project_roles から director 抽出 (互換 wrapper)"""
+        roles = self.get_project_roles(project_id, actor_user_id=actor_user_id) or {}
+        d = roles.get("director")
+        return [int(d)] if d is not None else []
 
     def get_project_pms(self, project_id: int, actor_user_id: str | None = None) -> list:
-        """GET /api/projects/{id} → pm uid 取得 (暫定: [] 返す・nibu 御回答後 cmd_474 実装)"""
-        return []  # TODO: Calendar DM thread endpoint 確定後に実装
+        """get_project_roles から pm 抽出 (互換 wrapper)"""
+        roles = self.get_project_roles(project_id, actor_user_id=actor_user_id) or {}
+        p = roles.get("pm")
+        return [int(p)] if p is not None else []
+
+    def post_notification(self, recipient_id: int, title: str, body: str,
+                          notif_type: str = "unread", meta: dict | None = None,
+                          actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-05 (nibu Phase 2 EP): POST /api/notifications
+        notif_type: 'mention' | 'notice' | 'unread'"""
+        payload = {"recipient_id": recipient_id, "title": title, "body": body, "type": notif_type, "meta": meta or {}}
+        resp = httpx.post(
+            f"{self.base_url}/api/notifications",
+            json=payload,
+            headers={**self._headers(actor_user_id), "Content-Type": "application/json"},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     def send_notification_to_users(self, user_ids: list, title: str, body: str,
                                    actor_user_id: str | None = None) -> dict:
-        """Calendar DM 通知 (暫定: no-op・DM thread endpoint 不在・cmd_474 で実装)"""
-        return {"ok": True, "created": []}  # TODO: cmd_474 で Calendar DM 経路実装
+        """殿御命 2026-06-05: post_notification を ループ実行 (旧 API 互換 wrapper)"""
+        created = []
+        for uid in user_ids:
+            try:
+                uid_int = int(uid)
+                r = self.post_notification(uid_int, title, body, "unread", None, actor_user_id=actor_user_id)
+                created.append({"recipient_id": uid_int, "id": r.get("id")})
+            except Exception as e:
+                created.append({"recipient_id": uid, "error": str(e)[:120]})
+        return {"ok": True, "created": created}
+
+    def get_dm_thread_messages(self, thread_id: int, actor_user_id: str | None = None) -> list:
+        """殿御命 2026-06-05 (nibu Phase 2 EP): GET /api/dm/threads/{id}/messages
+        Returns: [{id, thread_id, sender_id, body, created_at, ...}] (created_at 昇順)"""
+        resp = httpx.get(
+            f"{self.base_url}/api/dm/threads/{thread_id}/messages",
+            headers=self._headers(actor_user_id),
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json() or []
+
+    def post_dm_thread_read(self, thread_id: int, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-05 (nibu Phase 2 EP): POST /api/dm/threads/{id}/read
+        Returns: {thread_id, read_count} (冪等)"""
+        resp = httpx.post(
+            f"{self.base_url}/api/dm/threads/{thread_id}/read",
+            headers=self._headers(actor_user_id),
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_event(self, event_id: int, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-05 (nibu 御回答): 正規パス /api/calendar/events/{id}"""
+        resp = httpx.get(
+            f"{self.base_url}/api/calendar/events/{event_id}",
+            headers=self._headers(actor_user_id),
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()
 
     def patch_look_distribution_accept(self, distribution_id: int, actor_user_id: str) -> dict:
         """PATCH /api/look_distributions/{id}/accept — Look 配布の受諾 (nibu 殿御回答 2026-06-01 F 高)"""
@@ -629,6 +705,22 @@ class CalendarClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    def get_project(self, project_id: int, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-05: GET /api/projects/{id} — admin scope で任意 project 詳細取得
+        sender が project 未参加でも proj_name 解決可能にする fallback"""
+        try:
+            resp = httpx.get(
+                f"{self.base_url}/api/projects/{project_id}",
+                headers=self._headers(actor_user_id),
+                timeout=10.0,
+            )
+            if resp.status_code == 404:
+                return {}
+            resp.raise_for_status()
+            return resp.json() or {}
+        except Exception:
+            return {}
 
     def get_my_project_detail(self, project_id: int, actor_user_id: str | None = None) -> dict:
         """GET /api/me/projects/{project_id} — 単一 project 詳細取得 (Phase A relink A-3)"""

@@ -12,7 +12,7 @@
     }
   </style>
 </head>
-<body class="text-slate-800 font-sans">
+<body class="text-slate-800 font-sans" {% if user and user.user_id %}data-my-cuid="{{ user.user_id }}"{% endif %}>
   <div class="min-h-screen">
     {% block content %}{% endblock %}
   </div>

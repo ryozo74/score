@@ -137,14 +137,18 @@ body {
                             else ('bg-orange-300 text-orange-900' if _rank == 3
                             else 'bg-slate-100 text-slate-500')) %}
                         {% set _status_badge = 'bg-rose-100 text-rose-700' if _st == 'retake'
-                            else ('bg-amber-100 text-amber-700' if _st == 'reviewing'
-                            else ('bg-indigo-100 text-indigo-700' if _st == 'in_progress'
-                            else 'bg-slate-100 text-slate-600')) %}
-                        {% set _icon = '🎨' if tk.task_type == 'Composite' else ('💡' if tk.task_type in ('Lighting','Look','lighting') else ('🖼️' if tk.task_type == 'MattePaint' else ('✨' if tk.task_type in ('FX','fx') else ('📐' if tk.task_type == 'layout' else ('🎬' if tk.task_type == 'Animation' else '🎯'))))) %}
+                            else ('bg-amber-100 text-amber-700' if _st in ('reviewing','review')
+                            else ('bg-indigo-100 text-indigo-700' if _st in ('in_progress','in-progress')
+                            else ('bg-purple-100 text-purple-700' if tk.is_qc_inbox
+                            else 'bg-slate-100 text-slate-600'))) %}
+                        {% set _status_label = (
+                            ('📥 ' + (tk.kind or 'QC')|upper) if tk.is_qc_inbox
+                            else tk.status) %}
+                        {% set _icon = '🔍' if tk.is_qc_inbox else ('🎨' if tk.task_type == 'Composite' else ('💡' if tk.task_type in ('Lighting','Look','lighting') else ('🖼️' if tk.task_type == 'MattePaint' else ('✨' if tk.task_type in ('FX','fx') else ('📐' if tk.task_type == 'layout' else ('🎬' if tk.task_type == 'Animation' else '🎯')))))) %}
                         <li class="flex items-start gap-3 px-2 py-2 rounded-xl hover:bg-white/80 transition-colors">
                             <span class="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-black {{ _rank_class }}">{{ _rank }}</span>
                             <span class="text-base mt-0.5 shrink-0">{{ _icon }}</span>
-                            <div class="flex-1 min-w-0 leading-tight">
+                            <a href="{% if tk.is_qc_inbox %}/messages?thread={{ tk.thread_id }}{% elif tk.task_id %}/task/{{ tk.task_id }}{% else %}#{% endif %}" class="flex-1 min-w-0 leading-tight">
                                 <div class="flex flex-wrap items-center gap-x-0.5">
                                     {% if tk.project_name %}<span class="text-[10px] text-slate-400" translate="no">{{ tk.project_name }}</span><span class="text-slate-300 mx-1">/</span>{% endif %}
                                     {% if tk.seq_code %}<span class="text-[10px] text-slate-500" translate="no">{{ tk.seq_code }}</span><span class="text-slate-300 mx-1">/</span>{% endif %}
@@ -153,8 +157,8 @@ body {
                                 <div class="mt-0.5">
                                     <span class="text-sm font-black text-slate-900" translate="no">{{ tk.task_type or tk.shot_code or 'task' }}</span>
                                 </div>
-                            </div>
-                            <span class="text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0 mt-1 {{ _status_badge }}"><span translate="no">{{ tk.status }}</span></span>
+                            </a>
+                            <span class="text-[10px] font-bold rounded-full px-2 py-0.5 shrink-0 mt-1 {{ _status_badge }}"><span translate="no">{{ _status_label }}</span></span>
                         </li>
                         {% endfor %}
                     </ul>

@@ -20,9 +20,28 @@ _templates = Jinja2Templates(env=_env)
 
 
 def _resolve_task(client, shot_id: int, task_id: int | None, actor_id: str):
-    """task_id 指定時は当該タスクを探す。なければ None。"""
+    """task_id 指定時は当該タスクを探す。なければ None。
+    殿御命 2026-06-05: get_task (full DTO with name field) を優先し fallback で get_tasks"""
     if task_id is None:
         return None
+    # 優先: get_task で full DTO (name field 含む) 取得
+    if hasattr(client, "get_task"):
+        try:
+            raw = client.get_task(task_id, actor_user_id=actor_id) or {}
+            if raw and (raw.get("id") == task_id or raw.get("task_id") == task_id):
+                # dict から attr-like object 作成 (name 含む)
+                return type("_T", (), {
+                    "task_id": raw.get("id") or task_id,
+                    "shot_id": raw.get("shot_id") or shot_id,
+                    "type": raw.get("type", "Unknown"),
+                    "name": raw.get("name") or raw.get("type") or "task",
+                    "status": raw.get("status", "open"),
+                    "assignee_id": raw.get("assigned_to") or raw.get("assignee_id") or 0,
+                    "thread_id": raw.get("thread_id"),
+                })()
+        except Exception:
+            pass
+    # fallback: get_tasks (CalendarTask DTO — name 無いが type は有)
     try:
         tlist = client.get_tasks(shot_id, actor_user_id=actor_id) or []
         for t in tlist:
@@ -40,6 +59,7 @@ def get_qc_viewer(
     actor_id: str = Depends(get_actor_id),
     task_id: int | None = None,
     asset_id: int | None = None,
+    as_role: str | None = None,  # 殿御命 2026-06-05 (B 案): admin 限定 role preview
 ):
     client = get_calendar_client()
     try:
@@ -71,6 +91,60 @@ def get_qc_viewer(
     except Exception:
         asset_list = []
 
+    # 殿御命 2026-06-05: project_members 取得 (mention 選択用・pages_shot.py から移植)
+    project_members = []
+    try:
+        if project_id and hasattr(client, "get_team_members"):
+            project_members = client.get_team_members(int(project_id), actor_user_id=actor_id) or []
+        # fallback: project task の assignee + project_roles から user 集約
+        if not project_members and project_id:
+            user_name_map = {}
+            try:
+                for u in (client.get_users(actor_user_id=actor_id) or []):
+                    if isinstance(u, dict):
+                        uid = u.get("id") or u.get("user_id")
+                        if uid is not None:
+                            user_name_map[int(uid)] = u.get("name") or u.get("full_name") or (u.get("email") or "").split("@")[0] or f"uid {uid}"
+            except Exception:
+                pass
+            seen_uids = set()
+            # task assignees
+            try:
+                tasks_in_proj = client.get_tasks_by_project(int(project_id), actor_user_id=actor_id) if hasattr(client, "get_tasks_by_project") else []
+            except Exception:
+                tasks_in_proj = []
+            for tk in (tasks_in_proj or []):
+                a = (tk.get("assigned_to") if isinstance(tk, dict) else getattr(tk, "assignee_id", None)) if tk else None
+                if a is not None and a not in seen_uids:
+                    seen_uids.add(int(a))
+                    project_members.append({"user_id": int(a), "name": user_name_map.get(int(a), f"user_{a}"), "role": ""})
+            # project_roles の director/pm/lead も追加
+            if hasattr(client, "get_project_roles"):
+                try:
+                    roles = client.get_project_roles(int(project_id), actor_user_id=actor_id) or {}
+                    for rname, ruid in roles.items():
+                        if ruid is None: continue
+                        try:
+                            ruid_int = int(ruid)
+                        except (ValueError, TypeError):
+                            continue
+                        if ruid_int not in seen_uids:
+                            seen_uids.add(ruid_int)
+                            project_members.append({"user_id": ruid_int, "name": user_name_map.get(ruid_int, f"user_{ruid_int}"), "role": rname})
+                        else:
+                            # 既存 entry に role 上書き (role なしから role 付与)
+                            for pm in project_members:
+                                if pm.get("user_id") == ruid_int and not pm.get("role"):
+                                    pm["role"] = rname
+                except Exception:
+                    pass
+            # 加えて殿御本人 (admin) も含む (役 user.role admin)
+            if hasattr(user, 'user_id') and user.user_id and int(user.user_id) not in seen_uids:
+                seen_uids.add(int(user.user_id))
+                project_members.append({"user_id": int(user.user_id), "name": getattr(user, 'name', '') or f"uid {user.user_id}", "role": getattr(user, 'role', '') or "admin"})
+    except Exception:
+        project_members = []
+
     return _templates.TemplateResponse(
         request=request,
         name="qc_viewer.html",
@@ -78,7 +152,11 @@ def get_qc_viewer(
             "tasks": tasks, "shot_id": id, "project_name": project_name,
             "project_id": project_id, "seq_code": seq_code, "shot_code": shot_code,
             "task_id": task_id, "task_name": task_name,
-            "role": get_actor_role(actor_id),
+            "project_members": project_members,  # 殿御命 2026-06-05: mention 選択用
+            # 殿御命 2026-06-05 (B 案): admin role 元 user のみ as_role で別 role preview 可
+            "role": (as_role if (as_role in ('director', 'pm', 'lead', 'user') and get_actor_role(actor_id) == 'admin') else get_actor_role(actor_id)),
+            "actual_role": get_actor_role(actor_id),
+            "preview_role": as_role if (as_role and get_actor_role(actor_id) == 'admin') else None,
             "demo_mode": os.getenv("CALENDAR_MOCK", "0") == "1",
             "user": user,
             "asset_list": asset_list,

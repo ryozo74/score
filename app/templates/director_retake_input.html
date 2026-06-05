@@ -23,33 +23,21 @@
       <span class="mx-1">›</span>
       <a href="/director_dashboard" class="hover:text-purple-600 transition-colors">🎬Director</a>
       <span class="mx-1">›</span>
-      <a href="/project_detail/33" class="hover:text-purple-600 transition-colors">🎞️<span translate="no">Project Alpha</span></a>
+      <span class="hover:text-purple-600 transition-colors">🎞️<span translate="no">{{ proj_name or '-' }}</span></span>
       <span class="mx-1">›</span>
-      <a href="/project_detail/33" class="hover:text-purple-600 transition-colors" translate="no">SEQ01</a>
+      <span class="hover:text-purple-600 transition-colors" translate="no">{{ seq_code or '-' }}</span>
       <span class="mx-1">›</span>
-      <a href="/shot/1" class="hover:text-purple-600 transition-colors" translate="no">SHOT_001</a>
+      <a href="/shot/{{ shot_id }}" class="hover:text-purple-600 transition-colors" translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }}</a>
       <span class="mx-1">›</span>
       <span class="text-purple-600 font-bold"><span translate="no">Retake</span>入力</span>
     </nav>
 
-    <!-- タイトル -->
-    <h1 class="text-2xl font-black text-purple-800 mb-6">✏️ <span translate="no">Retake</span>を発行する — <span translate="no">SHOT_001 v04</span></h1>
+    <!-- タイトル (殿御命 2026-06-05: 4 階層 / version 形式) -->
+    {% set _hier = [proj_name, seq_code, shot_code, (task_type or 'task')] | select | list %}
+    <h1 class="text-2xl font-black text-purple-800 mb-6">✏️ <span translate="no">Retake</span>を発行する — <span translate="no">{{ _hier|join(' / ') }}{% if latest_asset %} / {{ latest_asset.version or '?' }}{% endif %}</span></h1>
 
     <div class="max-w-2xl flex flex-col gap-6">
-
-      <!-- ① 対象SHOT表示カード -->
-      <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5">
-        <p class="text-xs font-black text-slate-500 mb-3">対象 SHOT</p>
-        <div class="flex items-center gap-4">
-          <div class="w-24 h-16 rounded-xl bg-gradient-to-br from-amber-300 to-rose-500 flex-shrink-0"></div>
-          <div class="flex flex-col gap-1">
-            <p class="font-black text-slate-800" translate="no">SHOT_001 / v04</p>
-            <p class="text-sm text-slate-500"><span translate="no">Composite</span>担当: <span class="font-bold text-indigo-600" translate="no">Sato</span></p>
-            <p class="text-xs text-slate-400">提出日: 2026-05-10</p>
-          </div>
-          <span class="ml-auto text-xs font-black bg-rose-100 text-rose-600 rounded-full px-3 py-1">🔴 <span translate="no">Retake</span></span>
-        </div>
-      </div>
+      {# 殿御命 2026-06-05: 旧「対象 SHOT」 card 削除済 (重複表示) #}
 
       <!-- ② タイムラインバー + フレームプレビュー -->
       <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5">
@@ -67,18 +55,41 @@
               <button onclick="_savePaintToMarker()" title="現在の playhead 位置にマーカー作成 + ペイント保存" class="text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-2 py-1 font-bold">💾 保存</button>
             </div>
           </div>
-          <div id="frame-preview" class="relative aspect-video bg-gradient-to-br from-slate-700 to-slate-900 rounded-2xl overflow-hidden">
-            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div class="text-center">
-                <p id="frame-tc" class="text-white text-3xl font-black tracking-wider">00:00:00</p>
-                <p id="frame-info" class="text-white/60 text-xs mt-1">SHOT_001 v04 (frame 0 / 100)</p>
+          {# 殿御命 2026-06-05: フレームプレビュー = 実 video 連携 (latest_asset.mp4) + canvas 重ね #}
+          {% set _bn = (latest_asset.file_path or '').split('/')[-1] if latest_asset else '' %}
+          {% set _ext = _bn.lower().split('.')[-1] if _bn and '.' in _bn else '' %}
+          {% set _url = ('http://192.168.44.253:8001/static/assets/' ~ _bn) if _bn else '' %}
+          <div id="frame-preview" class="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden">
+            {% if latest_asset and _ext in ('mp4','mov','webm','m4v') %}
+              <video id="qc-video" src="{{ _url }}" preload="auto" playsinline class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+            {% elif latest_asset and _ext in ('png','jpg','jpeg','webp','gif') %}
+              <img src="{{ _url }}" class="absolute inset-0 w-full h-full object-contain bg-black" alt="{{ _bn }}">
+            {% else %}
+              <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900">
+                <div class="text-center text-white">
+                  <p class="text-3xl mb-2">📦</p>
+                  <p class="text-xs opacity-60">{% if not latest_asset %}提出物が無し{% else %}preview 非対応: {{ _ext or 'file' }}{% endif %}</p>
+                </div>
               </div>
+            {% endif %}
+            <!-- TC overlay (左上) -->
+            <div class="absolute top-2 left-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-lg pointer-events-none">
+              <p id="frame-tc" class="text-white text-lg font-black tracking-wider">00:00:00</p>
+              <p id="frame-info" class="text-white/70 text-[10px]">{{ shot_code or ('SHOT_' + (shot_id|string)) }} {% if latest_asset %}{{ latest_asset.version or '?' }}{% endif %} (frame 0 / 100)</p>
             </div>
-            <!-- オーバーペイント canvas -->
+            <!-- オーバーペイント canvas (video の上に重ね) -->
             <canvas id="paint-canvas" class="absolute inset-0 w-full h-full cursor-crosshair"></canvas>
-            <div class="absolute bottom-2 left-2 text-[10px] text-white/40 pointer-events-none">※ 実フレーム表示は将来 video element 連携</div>
+            <!-- 再生 control (video 連携) -->
+            {% if latest_asset and _ext in ('mp4','mov','webm','m4v') %}
+            <div class="absolute bottom-2 left-2 flex gap-1 pointer-events-auto">
+              <button onclick="document.getElementById('qc-video').play()" class="bg-white/20 hover:bg-white/40 text-white text-xs px-2 py-1 rounded">▶</button>
+              <button onclick="document.getElementById('qc-video').pause()" class="bg-white/20 hover:bg-white/40 text-white text-xs px-2 py-1 rounded">⏸</button>
+              <button onclick="var v=document.getElementById('qc-video');v.currentTime=Math.max(0,v.currentTime-1)" class="bg-white/20 hover:bg-white/40 text-white text-xs px-2 py-1 rounded">⏪ 1s</button>
+              <button onclick="var v=document.getElementById('qc-video');v.currentTime=Math.min(v.duration||0,v.currentTime+1)" class="bg-white/20 hover:bg-white/40 text-white text-xs px-2 py-1 rounded">1s ⏩</button>
+            </div>
+            {% endif %}
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">💡 canvas に drag で描画 → 「💾 保存」 で現在 playhead 位置にマーカー(コメント+ペイント) 生成。既存マーカークリックで保存ペイント呼出</p>
+          <p class="text-[10px] text-slate-400 mt-1">💡 canvas に drag で描画 → 「💾 保存」 で現在 playhead 位置にマーカー(コメント+ペイント) 生成。video 再生位置 と timeline playhead が双方向連動。</p>
         </div>
 
         <p class="text-xs font-black text-slate-500 mb-3">タイムライン (クリック / ドラッグ で playhead 移動・フレームプレビュー更新)</p>
@@ -138,12 +149,13 @@
         if (tcEl) tcEl.textContent = tc;
         const frameNum = Math.round(_playheadSec / _MAX_SEC * _TOTAL_FRAMES);
         const infoEl = document.getElementById('frame-info');
-        if (infoEl) infoEl.textContent = `SHOT_001 v04 (frame ${frameNum} / ${_TOTAL_FRAMES})`;
-        // フレームプレビューの背景色を frame に応じて少し変化させる (動きの示唆)
-        const preview = document.getElementById('frame-preview');
-        if (preview) {
-          const hue = Math.round(_playheadSec / _MAX_SEC * 360);
-          preview.style.background = `linear-gradient(135deg, hsl(${hue}, 30%, 25%) 0%, hsl(${(hue+30)%360}, 25%, 15%) 100%)`;
+        const _shotLabel = {{ (shot_code or ('SHOT_' + (shot_id|string)))|tojson }};
+        const _verLabel = {{ (latest_asset.version if latest_asset else '?')|tojson }};
+        if (infoEl) infoEl.textContent = `${_shotLabel} ${_verLabel} (frame ${frameNum} / ${_TOTAL_FRAMES})`;
+        // 殿御命 2026-06-05: video 連携 — playhead 移動時 video.currentTime sync
+        const v = document.getElementById('qc-video');
+        if (v && v.duration && !v._suppressSync) {
+          v.currentTime = _playheadSec;
         }
         // 該当 marker の保存ペイントを canvas に呼び出し
         _redrawPaintForPlayhead();
@@ -419,9 +431,9 @@
       <!-- ④ 全体方針 -->
       <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5">
         <label class="block text-xs font-black text-slate-500 mb-2">全体方針・演出意図</label>
-        <textarea rows="3"
+        <textarea id="retake-direction" rows="3"
           class="w-full border border-white/60 bg-white/60 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none"
-          placeholder="全体的な方針・演出意図">全体のトーンは Brief v2 に近づけること。次回スプリント中に v05 を希望。</textarea>
+          placeholder="全体的な方針・演出意図 (例: 色味は OK・但しリムライト強調希望)"></textarea>
       </div>
 
       <!-- ⑤ 参考素材添付（インライン） -->
@@ -436,28 +448,36 @@
           <button onclick="switchTab('url')" id="tab-url"
             class="px-3 py-1.5 rounded-xl text-xs font-bold bg-white/60 text-slate-600 hover:bg-white/80 transition-all">🔗 URL</button>
         </div>
+        {# 殿御命 2026-06-05: file input + drag/drop 対応 + 選択 file プレビュー #}
         <!-- 静止画パネル -->
         <div id="panel-img">
-          <div class="border-2 border-dashed border-purple-200 rounded-2xl p-6 text-center text-slate-400 text-sm cursor-pointer hover:border-purple-400 transition-all">
+          <label id="drop-img" for="file-img"
+            class="block border-2 border-dashed border-purple-200 rounded-2xl p-6 text-center text-slate-400 text-sm cursor-pointer hover:border-purple-400 transition-all">
+            <input type="file" id="file-img" accept="image/*" multiple class="hidden" onchange="onFileSelected('img', this.files)">
             <div class="text-3xl mb-2">🖼️</div>
-            <p class="text-xs">クリックして画像を選択（モック）</p>
-            <p class="text-[10px] text-slate-300 mt-1">JPG / PNG / PSD</p>
-          </div>
+            <p class="text-xs">クリック or ドラッグ&ドロップで画像を選択</p>
+            <p class="text-[10px] text-slate-300 mt-1">JPG / PNG / PSD / WebP</p>
+            <div id="preview-img" class="mt-3 flex flex-wrap gap-2 justify-center"></div>
+          </label>
         </div>
         <!-- 動画パネル -->
         <div id="panel-video" class="hidden">
-          <div class="border-2 border-dashed border-purple-200 rounded-2xl p-6 text-center text-slate-400 text-sm cursor-pointer hover:border-purple-400 transition-all">
+          <label id="drop-video" for="file-video"
+            class="block border-2 border-dashed border-purple-200 rounded-2xl p-6 text-center text-slate-400 text-sm cursor-pointer hover:border-purple-400 transition-all">
+            <input type="file" id="file-video" accept="video/*" multiple class="hidden" onchange="onFileSelected('video', this.files)">
             <div class="text-3xl mb-2">🎬</div>
-            <p class="text-xs">クリックして動画を選択（モック）</p>
-            <p class="text-[10px] text-slate-300 mt-1">MP4 / MOV / MXF</p>
-          </div>
+            <p class="text-xs">クリック or ドラッグ&ドロップで動画を選択</p>
+            <p class="text-[10px] text-slate-300 mt-1">MP4 / MOV / MXF / WebM</p>
+            <div id="preview-video" class="mt-3 flex flex-wrap gap-2 justify-center"></div>
+          </label>
         </div>
         <!-- URLパネル -->
         <div id="panel-url" class="hidden">
-          <input type="url" placeholder="https://..."
+          <input type="url" id="ref-url" placeholder="https://..."
             class="w-full border border-white/60 bg-white/60 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-300" />
           <p class="text-[10px] text-slate-400 mt-1">Frame.io / Google Drive / Vimeo URL を貼付</p>
         </div>
+        <p id="ref-status" class="text-[11px] text-emerald-600 mt-2"></p>
       </div>
 
       <!-- ⑥ 優先度・期日・通知先 -->
@@ -482,7 +502,7 @@
         <!-- 期日 -->
         <div>
           <label class="block text-xs font-black text-slate-500 mb-2">期日</label>
-          <input type="date" value="2026-05-14"
+          <input type="date" id="retake-due-date"
             class="border border-white/60 bg-white/60 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-300" />
         </div>
 
@@ -509,16 +529,18 @@
         </div>
       </div>
 
-      <!-- ⑦ プレビュー領域 -->
+      <!-- ⑦ プレビュー領域 (殿御命 2026-06-05: 動的反映) -->
       <div class="bg-slate-50/60 border border-slate-200/60 rounded-2xl p-4">
         <p class="text-xs font-black text-slate-600 mb-3">📋 リテイク内容プレビュー</p>
         <div class="flex flex-col gap-1.5 text-xs text-slate-600">
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">対象:</span><span translate="no">SHOT_001 / v04</span></div>
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">マーカー:</span><span>2点（00:01:23 / 00:02:45）</span></div>
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">全体方針:</span><span class="flex-1"><span translate="no">Brief v2</span> に近づけること。<span translate="no">v05</span> を次スプリント中に希望。</span></div>
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">優先度:</span><span class="text-rose-600 font-bold">🔴 高</span></div>
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">期日:</span><span>2026-05-14</span></div>
-          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">通知先:</span><span><span translate="no">Sato</span> / 自動: <span translate="no">PM</span></span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">対象:</span><span translate="no">{{ _hier|join(' / ') }}{% if latest_asset %} / {{ latest_asset.version or '?' }}{% endif %}</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">マーカー:</span><span id="pv-markers" class="flex-1">0 点</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">コメント:</span><span id="pv-comments" class="flex-1">0 件</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">全体方針:</span><span id="pv-direction" class="flex-1 italic text-slate-400">未入力</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">参考素材:</span><span id="pv-refs" class="flex-1">添付なし</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">優先度:</span><span id="pv-priority" class="font-bold">🔴 高</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">期日:</span><span id="pv-due">-</span></div>
+          <div class="flex gap-2"><span class="font-bold text-slate-500 w-20">通知先:</span><span id="pv-notify" class="flex-1">自動 (担当 + PM + Director)</span></div>
         </div>
       </div>
 
@@ -530,48 +552,109 @@
       </button>
 
       <script>
-      async function submitRetake() {
-        const btn = document.getElementById('retake-submit-btn');
-        const orig = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '🚀 送信中...';
-
-        // timeline marker 抽出 (TC 文字列の list)
-        const markers = Array.from(document.querySelectorAll('#timeline-bar > div'))
-          .map(el => el.querySelector('span')?.textContent?.trim())
+      // 殿御命 2026-06-05: プレビュー 動的反映
+      function _collectRetakeData() {
+        // 殿御命 2026-06-05: playhead を 除外 (data-marker-id 属性 marker のみ集計)
+        const markers = Array.from(document.querySelectorAll('#timeline-bar [data-marker-id]'))
+          .map(el => el.querySelector('span')?.textContent?.trim() || (el.dataset.tc || ''))
           .filter(Boolean);
-
-        // コメントカード抽出 (TC + comment text の dict list)
         const comments = Array.from(document.querySelectorAll('#comment-cards > div'))
           .map(card => ({
             tc: card.querySelector('p.text-rose-600')?.textContent?.replace('⏱️','').trim() || '',
             text: card.querySelector('textarea')?.value?.trim() || '',
           }))
           .filter(c => c.text);
+        const direction = (document.getElementById('retake-direction') || {}).value?.trim() || '';
+        const priorityEl = document.querySelector('input[name="priority"]:checked');
+        const priority = priorityEl ? priorityEl.value : 'high';
+        const due = (document.getElementById('retake-due-date') || {}).value || '';
+        const refUrl = (document.getElementById('ref-url') || {}).value?.trim() || '';
+        const refImgs = (window._refFiles?.img || []).map(f => f.name);
+        const refVideos = (window._refFiles?.video || []).map(f => f.name);
+        return { markers, comments, direction, priority, due, refUrl, refImgs, refVideos };
+      }
+      function renderPreview() {
+        const d = _collectRetakeData();
+        document.getElementById('pv-markers').textContent = d.markers.length > 0 ? `${d.markers.length} 点 (${d.markers.join(' / ')})` : '0 点';
+        const pvC = document.getElementById('pv-comments');
+        if (d.comments.length > 0) {
+          pvC.innerHTML = d.comments.map(c => `<div>⏱️ ${c.tc} — ${_escapeHtml(c.text.slice(0,60))}${c.text.length > 60 ? '…' : ''}</div>`).join('');
+        } else { pvC.textContent = '0 件'; }
+        const pvD = document.getElementById('pv-direction');
+        if (d.direction) { pvD.textContent = d.direction; pvD.classList.remove('italic','text-slate-400'); }
+        else { pvD.textContent = '未入力'; pvD.classList.add('italic','text-slate-400'); }
+        const pvR = document.getElementById('pv-refs');
+        const parts = [];
+        if (d.refImgs.length) parts.push(`📷 静止画 ${d.refImgs.length}`);
+        if (d.refVideos.length) parts.push(`🎬 動画 ${d.refVideos.length}`);
+        if (d.refUrl) parts.push(`🔗 ${d.refUrl.slice(0,40)}${d.refUrl.length > 40 ? '…' : ''}`);
+        pvR.textContent = parts.length > 0 ? parts.join(' · ') : '添付なし';
+        document.getElementById('pv-priority').textContent = d.priority === 'high' ? '🔴 高' : (d.priority === 'mid' ? '🟡 中' : '🟢 低');
+        document.getElementById('pv-priority').className = 'font-bold ' + (d.priority === 'high' ? 'text-rose-600' : (d.priority === 'mid' ? 'text-amber-600' : 'text-emerald-600'));
+        document.getElementById('pv-due').textContent = d.due || '-';
+      }
+      function _escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-        const body = {
-          shot_id: {{ shot_id or 1 }},
-          {% if task_id %}task_id: {{ task_id }},{% endif %}
-          markers: markers,
-          comments: comments,
-          severity: 'high',
-          submitted_at: new Date().toISOString(),
-        };
+      // 各 input change で 動的更新
+      ['retake-direction','retake-due-date','ref-url'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', renderPreview);
+      });
+      document.querySelectorAll('input[name="priority"]').forEach(el => el.addEventListener('change', renderPreview));
+      // file 選択 / drag-drop 後にも update
+      const _origOnFileSelected = window.onFileSelected;
+      window.onFileSelected = function(kind, files) {
+        if (_origOnFileSelected) _origOnFileSelected(kind, files);
+        renderPreview();
+      };
+      // marker / comment 操作後の周期更新 (簡易: 1 秒間隔)
+      setInterval(renderPreview, 1500);
+      // 初回 render
+      setTimeout(renderPreview, 100);
 
+      async function submitRetake() {
+        const btn = document.getElementById('retake-submit-btn');
+        const orig = btn.textContent;
+        const statusEl = document.createElement('p');
+        statusEl.id = 'submit-status';
+        statusEl.className = 'text-xs text-slate-500 mt-2 text-center';
+        if (!document.getElementById('submit-status')) btn.parentNode.insertBefore(statusEl, btn.nextSibling);
+        btn.disabled = true;
+        btn.textContent = '🚀 送信中...';
+
+        const d = _collectRetakeData();
+        // body 構築
+        const fd = new FormData();
+        fd.append('shot_id', {{ shot_id or 1 }});
+        {% if task_id %}fd.append('task_id', {{ task_id }});{% endif %}
+        {% if latest_asset %}fd.append('asset_id', {{ latest_asset.id|default(0) }});{% endif %}
+        fd.append('markers', JSON.stringify(d.markers));
+        fd.append('comments', JSON.stringify(d.comments));
+        fd.append('direction', d.direction);
+        fd.append('priority', d.priority);
+        fd.append('due_date', d.due);
+        fd.append('reference_url', d.refUrl);
+        (window._refFiles?.img || []).forEach((f,i) => fd.append('ref_img_' + i, f));
+        (window._refFiles?.video || []).forEach((f,i) => fd.append('ref_video_' + i, f));
         try {
           const resp = await fetch('/api/bff/retakes', {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
+            method: 'POST', credentials: 'include',
+            body: fd,
           });
-          if (!resp.ok) throw new Error('HTTP ' + resp.status);
-          const data = await resp.json();
-          showRetakeModal();
+          const data = await resp.json().catch(() => ({}));
+          if (resp.ok) {
+            const statusE = document.getElementById('submit-status');
+            if (statusE) statusE.innerHTML = `✅ 発行完了 — thread=${data.thread_id||'?'} / push=${(data.push_result||{}).sent||0} / sse=${(data.sse_result||{}).delivered||0}`;
+            showRetakeModal();
+          } else {
+            const statusE = document.getElementById('submit-status');
+            if (statusE) statusE.innerHTML = '❌ HTTP ' + resp.status + ': ' + (data.detail || '');
+            btn.disabled = false; btn.textContent = orig;
+          }
         } catch (e) {
-          alert('❌ 送信エラー: ' + e.message);
-          btn.disabled = false;
-          btn.textContent = orig;
+          const statusE = document.getElementById('submit-status');
+          if (statusE) statusE.innerHTML = '❌ 例外: ' + e.message;
+          btn.disabled = false; btn.textContent = orig;
         }
       }
       </script>
@@ -633,6 +716,93 @@
         }
       });
     }
+    // 殿御命 2026-06-05: video → playhead 逆 sync + MAX_SEC を video.duration に合わせる
+    (function(){
+      const v = document.getElementById('qc-video');
+      if (!v) return;
+      v.addEventListener('loadedmetadata', () => {
+        if (typeof window._MAX_SEC === 'number') {
+          window._MAX_SEC = v.duration;
+        }
+      });
+      v.addEventListener('timeupdate', () => {
+        v._suppressSync = true;
+        if (typeof _updatePlayhead === 'function') {
+          _updatePlayhead(v.currentTime);
+        }
+        v._suppressSync = false;
+      });
+    })();
+
+    // 殿御命 2026-06-05: 期日 default = 今日
+    (function(){
+      const d = document.getElementById('retake-due-date');
+      if (d && !d.value) {
+        const today = new Date();
+        const y = today.getFullYear();
+        const m = String(today.getMonth()+1).padStart(2,'0');
+        const dd = String(today.getDate()).padStart(2,'0');
+        d.value = `${y}-${m}-${dd}`;
+      }
+    })();
+
+    // 殿御命 2026-06-05: 参考素材添付 — file 選択 + drag/drop
+    window._refFiles = { img: [], video: [] };
+    window.onFileSelected = function(kind, files) {
+      if (!files || files.length === 0) return;
+      const arr = Array.from(files);
+      window._refFiles[kind] = window._refFiles[kind].concat(arr);
+      _renderRefPreview(kind);
+      const status = document.getElementById('ref-status');
+      if (status) status.textContent = `✓ ${arr.length} 件 添付 (合計 ${window._refFiles[kind].length} 件)`;
+    };
+    function _renderRefPreview(kind) {
+      const container = document.getElementById('preview-' + kind);
+      if (!container) return;
+      container.innerHTML = '';
+      window._refFiles[kind].forEach((f, i) => {
+        const box = document.createElement('div');
+        box.className = 'w-20 h-14 bg-slate-200 rounded-lg overflow-hidden relative group';
+        if (kind === 'img' && f.type.startsWith('image/')) {
+          const img = document.createElement('img');
+          img.src = URL.createObjectURL(f);
+          img.className = 'w-full h-full object-cover';
+          box.appendChild(img);
+        } else if (kind === 'video' && f.type.startsWith('video/')) {
+          const v = document.createElement('video');
+          v.src = URL.createObjectURL(f);
+          v.muted = true; v.preload = 'metadata';
+          v.className = 'w-full h-full object-cover';
+          box.appendChild(v);
+        } else {
+          box.innerHTML = '<div class="flex items-center justify-center h-full text-[10px] font-bold text-slate-500">' + (f.name.split('.').pop() || '?').toUpperCase() + '</div>';
+        }
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'absolute top-0 right-0 bg-rose-500 text-white w-4 h-4 rounded-full text-[10px] opacity-0 group-hover:opacity-100 transition';
+        rm.textContent = '×';
+        rm.onclick = (e) => { e.preventDefault(); e.stopPropagation(); window._refFiles[kind].splice(i,1); _renderRefPreview(kind); };
+        box.appendChild(rm);
+        container.appendChild(box);
+      });
+    }
+    ['img','video'].forEach(kind => {
+      const drop = document.getElementById('drop-' + kind);
+      if (!drop) return;
+      ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        drop.classList.add('border-purple-500','bg-purple-50');
+      }));
+      ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, (e) => {
+        e.preventDefault(); e.stopPropagation();
+        drop.classList.remove('border-purple-500','bg-purple-50');
+      }));
+      drop.addEventListener('drop', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const files = Array.from(e.dataTransfer.files).filter(f => kind === 'img' ? f.type.startsWith('image/') : f.type.startsWith('video/'));
+        if (files.length > 0) onFileSelected(kind, files);
+      });
+    });
   </script>
 </body>
 </html>

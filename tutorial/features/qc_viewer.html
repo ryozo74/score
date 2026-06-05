@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — 🎯 QC ビューア</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-purple-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-purple-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">🎯 QC ビューア</h1>
+      <p class="mt-2 text-purple-200">提出された asset を Before/After 並列比較・version 履歴サムネ・Director 判定 (Approve/Retake)・Lead 上申 button を統合した QC 専用画面。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/qc_1.png" alt="QC ビューア 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>asset 自動再生</strong> — URL ?asset_id=N で指定された asset を mp4/mov player で表示 (img も対応)</li>
+<li class="text-gray-700 leading-relaxed"><strong>パンくず</strong> — プロジェクト › marukome › sq01 › c05 › Compositing › QC確認 (4 階層 full name)</li>
+<li class="text-gray-700 leading-relaxed"><strong>👁 視点切替 (admin 専用)</strong> — Director / PM / Lead / User の role 別 UI を 即時 preview (admin のみ・URL ?as_role=N)</li>
+<li class="text-gray-700 leading-relaxed"><strong>Director / PM / Admin の判定 block</strong> — ✅ Approve + コメント / 🔁 Retake link (task.status='review' で活性)</li>
+<li class="text-gray-700 leading-relaxed"><strong>Lead / Lighting Lead の上申 block</strong> — 📤 Director QC へ上申 (部内 review 済前提 + mention 必須対応)</li>
+<li class="text-gray-700 leading-relaxed"><strong>SHOT/task thread link</strong> — ヘッダー右上「💬 c05 Compositing task thread」で messages 連動</li>
+<li class="text-gray-700 leading-relaxed"><strong>version 履歴サイドバー</strong> — 過去 version サムネ click で切替・比較モード対応</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">msg の ▶ QC ビューアで確認 緑ボタン click → /qc/{shot_id}?task_id&asset_id</li>
+<li class="text-gray-700 leading-relaxed">メイン player で asset 確認 + version 履歴 click 切替</li>
+<li class="text-gray-700 leading-relaxed">Director: コメント入力 → ✅ Approve → SHOT thread に「✅ Approved」通知 + task.status → completed</li>
+<li class="text-gray-700 leading-relaxed">Director: 🔁 Retake → /director_retake_input?shot_id&task_id 遷移 → リファレンス添付可</li>
+<li class="text-gray-700 leading-relaxed">Lead: 📤 Director QC へ上申 → mention で代替担当指定 → SHOT thread に通知</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

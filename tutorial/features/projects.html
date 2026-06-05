@@ -42,6 +42,94 @@
 <li class="text-gray-700 leading-relaxed">ステータスフィルタ (オンライン/オフライン/アーカイブ) で表示切替。</li>
       </ol>
     </section>
+
+    <!-- 殿御命 2026-06-05: Project / SEQ / SHOT / Task 階層構造説明 -->
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🗂 階層構造 — Project / SEQ / SHOT / Task</h2>
+      <p class="text-gray-600 text-sm mb-4">Score では制作対象を <strong>4 階層</strong> で管理します。各層が上位を含む親子関係。QC/Review 依頼の通知タイトルにもこの階層が反映されます (例: <code class="bg-slate-100 px-1 rounded text-xs">marukome / SEQ001 / SHOT_001 / Composite</code>)。</p>
+      <div class="space-y-4">
+
+        <!-- Project -->
+        <div class="border-l-4 border-blue-500 pl-4 py-2">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">📁</span>
+            <h3 class="text-lg font-bold text-gray-800">Project (案件・最上位)</h3>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed">スタジオが受注した 1 つの案件単位。クライアント・予算・納期・担当チーム (PM / Director / 各分野 Lead) が紐付く。</p>
+          <ul class="list-disc list-inside text-xs text-gray-500 mt-2 space-y-0.5">
+            <li>例: <strong>marukome</strong> (味噌 CM 案件) / <strong>Bali</strong> (映画予告 案件)</li>
+            <li>1 Project = 複数 SEQ + Production Tracker + 共有カレンダー + 担当割当</li>
+            <li>ステータス: オンライン (進行中) / オフライン (完了) / アーカイブ済 (圧縮保管)</li>
+          </ul>
+        </div>
+
+        <!-- SEQ -->
+        <div class="border-l-4 border-purple-500 pl-4 py-2 ml-6">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">🎞️</span>
+            <h3 class="text-lg font-bold text-gray-800">SEQ (シーケンス・場面単位)</h3>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed">Project 内の連続する場面 (シーケンス) のまとまり。物語の章単位・ロケーション単位・尺単位 等で区切る。</p>
+          <ul class="list-disc list-inside text-xs text-gray-500 mt-2 space-y-0.5">
+            <li>例: <strong>SEQ001</strong> (オープニング場面) / <strong>SEQ002</strong> (本編 食卓場面)</li>
+            <li>1 SEQ = 複数 SHOT のまとまり (通常 5〜50 SHOT)</li>
+            <li>命名規則: <code class="bg-slate-100 px-1 rounded">SEQ + 3 桁数字</code> (例 SEQ001 / SEQ045)</li>
+          </ul>
+        </div>
+
+        <!-- SHOT -->
+        <div class="border-l-4 border-emerald-500 pl-4 py-2 ml-12">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">🎬</span>
+            <h3 class="text-lg font-bold text-gray-800">SHOT (ショット・カット単位)</h3>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed">1 つのカット (連続する映像の最小単位)。カメラのカット〜カットの間。映像制作の基本作業単位。</p>
+          <ul class="list-disc list-inside text-xs text-gray-500 mt-2 space-y-0.5">
+            <li>例: <strong>SHOT_001</strong> (タイトルロゴ出現) / <strong>SHOT_023</strong> (商品クローズアップ)</li>
+            <li>1 SHOT = 複数 Task (工程) + 提出 asset (動画/画像) + QC 履歴 + コメント</li>
+            <li>命名規則: <code class="bg-slate-100 px-1 rounded">SHOT_ + 3 桁数字</code> (例 SHOT_001)・Lighting/Composite/MattePaint/Animation/FX 等 全工程を内包</li>
+            <li>各 SHOT に対し SHOT 関係者 thread (PM/Director/Lead/担当者) が QC/Review 提出時 自動作成される</li>
+          </ul>
+        </div>
+
+        <!-- Task -->
+        <div class="border-l-4 border-rose-500 pl-4 py-2 ml-20">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">⚙️</span>
+            <h3 class="text-lg font-bold text-gray-800">Task (工程・最小作業単位)</h3>
+          </div>
+          <p class="text-gray-700 text-sm leading-relaxed">SHOT 内の各工程 (Lighting / Composite / MattePaint / Animation / FX 等)。担当者 1 名 + 期日 + 提出 asset (バージョン管理) + status (open/in_progress/reviewing/retake/approved) を持つ。</p>
+          <ul class="list-disc list-inside text-xs text-gray-500 mt-2 space-y-0.5">
+            <li>例: <strong>Composite</strong> (Sato 担当) / <strong>Lighting</strong> (Kato 担当) / <strong>MattePaint</strong></li>
+            <li>1 Task = 1 担当者 + バージョン履歴 (v001 / v002 / ...) + QC ステータス</li>
+            <li>Review/QC 提出 → SHOT 関係者 thread に通知 → Director Approve → status=approved</li>
+            <li>status: 🔵 open (未着手) → 🟡 in_progress (作業中) → 🟠 reviewing (Director 判定待ち) → 🔴 retake (差し戻し) → 🟢 approved (承認済)</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- まとめ図 -->
+      <div class="mt-6 bg-slate-50 rounded-xl p-4">
+        <p class="text-xs font-bold text-slate-600 mb-2">📐 階層イメージ (実例)</p>
+        <pre class="text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap">📁 marukome (Project)
+└── 🎞️ SEQ001 (オープニング)
+    └── 🎬 SHOT_001 (タイトルロゴ出現)
+        ├── ⚙️ Composite (Sato 担当・v005 Approved)
+        ├── ⚙️ Lighting (Kato 担当・v003 in_progress)
+        └── ⚙️ MattePaint (Sato 担当・v002 reviewing)</pre>
+      </div>
+
+      <!-- Score での表現 -->
+      <div class="mt-6 bg-indigo-50 rounded-xl p-4">
+        <p class="text-xs font-bold text-indigo-700 mb-2">🏷️ Score での階層表現</p>
+        <ul class="text-xs text-slate-700 space-y-1">
+          <li>• <strong>パンくず</strong> (画面上部): <code class="bg-white px-1 rounded">プロジェクト › marukome › SEQ001 › SHOT_001 › Composite › QC確認</code></li>
+          <li>• <strong>QC/Review 依頼通知 title</strong>: <code class="bg-white px-1 rounded">📌 Review 依頼: marukome / SEQ001 / SHOT_001 / Composite</code></li>
+          <li>• <strong>SHOT 関係者 thread 命名</strong>: SHOT 単位で 1 thread (Project + SEQ + SHOT で一意特定)</li>
+        </ul>
+      </div>
+    </section>
   </main>
   <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
   <script src="../js/nav.js"></script>

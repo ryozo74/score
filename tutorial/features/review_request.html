@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — 📌 Review 依頼</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-indigo-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-indigo-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">📌 Review 依頼</h1>
+      <p class="mt-2 text-indigo-200">Compositor が Review 依頼を提出 → SHOT 関係者 thread (PM/Director/Lead + mention 主体) に自動投稿。Director の判定前段階で 部内意見集約。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/messages.png" alt="Review 依頼 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>提出種別 = Review</strong> — 部内レビュー目的・Director 判定前の意見集約</li>
+<li class="text-gray-700 leading-relaxed"><strong>SHOT 関係者 thread 自動作成</strong> — PM + Director + Lead + task assignees + mention で構成</li>
+<li class="text-gray-700 leading-relaxed"><strong>mention 主体</strong> — Director 自動補完なし。mention で送信先を 明示指定</li>
+<li class="text-gray-700 leading-relaxed"><strong>階層 title</strong> — proj / SEQ / SHOT / task の 4 階層を本文先頭に明記 (例: marukome / sq01 / c05 / comp)</li>
+<li class="text-gray-700 leading-relaxed"><strong>QC ビューア link 自動付与</strong> — 本文末尾に <code>/qc/{shot_id}?task_id&asset_id</code> 緑ボタン化</li>
+<li class="text-gray-700 leading-relaxed"><strong>Push + SSE 配信</strong> — 全 participants に通知 (sender は除外・但し mention 含 sender は配信)</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">/task/{task_id} で対象 asset card → 📤 既存 asset で QC 依頼 → modal で「📌 Review」選択</li>
+<li class="text-gray-700 leading-relaxed">mention 候補から PM / 他 user を選択 (必須・Director 不在時)</li>
+<li class="text-gray-700 leading-relaxed">補足コメント (任意) → 📤 送信</li>
+<li class="text-gray-700 leading-relaxed">受信側: msg → SHOT thread → ▶ QC ビューアで確認 click → 対象 asset 再生 → 部内コメント返信</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

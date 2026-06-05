@@ -20,12 +20,7 @@
 
     <!-- ===== Left Pane: Thread List ===== -->
     <div class="w-80 flex flex-col border-r border-white/60 bg-white/10 shrink-0 h-screen">
-      {# 殿御命 2026-06-03: task/shot 別 thread query 受領時の案内 #}
-      {% if thread_query %}
-      <div class="mx-4 mt-3 px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
-        💬 task/shot 別 thread「<span translate="no" class="font-bold">{{ thread_query }}</span>」専用 thread は <strong>demo data 未配置</strong>(今後実装予定)。下記の全 thread 一覧を御確認頂きたく。
-      </div>
-      {% endif %}
+      {# 殿御命 2026-06-05: 旧 demo 案内 削除 + thread_query 受領時 自動 open (script 内で JS 処理) #}
       <div class="px-4 pt-6 pb-3 shrink-0">
         <div class="flex items-center gap-3 mb-2">
           <h2 class="text-lg font-black text-slate-800">💬 メッセージ</h2>
@@ -57,20 +52,28 @@
       <div class="flex-1 overflow-y-auto px-3 pb-4">
         <div id="list-shot">
           {# 殿御命 2026-06-04: SHOT 関係者 thread (participants 3+ 名) を SHOT タブに表示 #}
+          {# 殿御命 2026-06-05: thread row 表示 = last_message 2 行目から 階層 title (例「c05 Compositing」) 抽出 #}
           {% for t in shot_group_threads %}
           {% set _parts = t.participants if t.participants else [] %}
           {% set _names = _parts | map(attribute='name') | reject('equalto', 'Me') | list %}
+          {% set _lm = t.last_message or '' %}
+          {% set _lines = _lm.split('\n') %}
+          {% set _ns_t = namespace(title='') %}
+          {% if _lines|length >= 2 and (_lines[0].startswith('🔍') or _lines[0].startswith('📌') or _lines[0].startswith('✅')) %}
+            {% set _ns_t.title = _lines[1] %}
+          {% endif %}
+          {% set _title = _ns_t.title or (_names|join(', ') if _names else ('thread ' ~ t.thread_id)) %}
           <button type="button" onclick="openRealThread('{{ t.thread_id }}')"
                   data-real-thread-row="{{ t.thread_id }}"
                   class="thread-row w-full text-left block px-3 py-3 rounded-2xl hover:bg-white/50 mb-1 transition-colors">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-base shrink-0">👥</div>
+              <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-base shrink-0">🎬</div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center justify-between">
-                  <span class="font-bold text-slate-800 text-xs truncate" translate="no">{{ _names|join(', ') if _names else ('thread ' ~ t.thread_id) }}</span>
+                  <span class="font-bold text-slate-800 text-xs truncate" translate="no">{{ _title }}</span>
                   <span class="text-[10px] text-slate-400">{{ (t.updated_at or '')[:10] }}</span>
                 </div>
-                <p class="text-[11px] text-slate-500 truncate">👥 {{ _parts|length }} 名 · {{ t.last_message or '(まだメッセージなし)' }}</p>
+                <p class="text-[11px] text-slate-500 truncate">👥 {{ _parts|length }} 名 ({{ _names|join(', ') }}) · {{ _lines[0] if _lines else '' }}</p>
               </div>
             </div>
           </button>
@@ -660,23 +663,44 @@ function deleteThread(id, ev) {
   });
   _updateUnreadBadge();
 
-  // URL ?thread=XXX で自動 thread 表示 (/shot/{id} 「💬 thread を開く」からの遷移時)
+  // 殿御命 2026-06-05: URL ?thread=XXX で自動 thread 表示 — real Calendar thread (数値 ID) 対応
   const params = new URLSearchParams(location.search);
   const targetThread = params.get('thread');
   if (targetThread) {
-    // 該当 thread が threads dict に存在すれば showThread・なければ SHOT tab を開いて選択
     setTimeout(() => {
+      // 数値 = real Calendar DM thread → openRealThread (SHOT/DM タブ自動判別)
+      if (/^\d+$/.test(targetThread)) {
+        const dataEl = document.getElementById('real-threads-data');
+        if (dataEl) {
+          try {
+            const payload = JSON.parse(dataEl.textContent || '{}');
+            const t = (payload.threads || []).find(x => String(x.thread_id) === String(targetThread));
+            if (t) {
+              // participants 数 + content で SHOT/DM タブ判定
+              const lm = (t.last_message || '').trim();
+              const isShot = (t.participants || []).length > 2 ||
+                             lm.startsWith('🔍 QC 依頼') || lm.startsWith('📌 Review 依頼') ||
+                             lm.startsWith('✅ Approved') || lm.startsWith('🔁 Retake');
+              switchTab(isShot ? 'shot' : 'dm');
+              openRealThread(targetThread);
+              return;
+            }
+          } catch(e) { console.warn('parse err', e); }
+        }
+        // thread 一覧に未存在 (例: 古い thread ID) — 既存 thread 一覧で確認 案内表示
+        const area = document.getElementById('conv-messages');
+        if (area) area.innerHTML = '<div class="text-center text-amber-700 py-12 px-6"><p class="text-3xl mb-2">⚠️</p><p class="text-sm font-bold">thread 「' + targetThread + '」 が見つかりませんでした</p><p class="text-xs text-amber-600 mt-2">左の thread 一覧から選択してください (権限切れ・削除済 thread の可能性)</p></div>';
+        return;
+      }
+      // 旧 mock thread (demo_mode 互換)
       if (typeof threads !== 'undefined' && threads[targetThread]) {
-        // tab を thread タイプ別に切替
-        if (targetThread.startsWith('task')) switchTab('shot');  // task thread は SHOT tab で表示
+        if (targetThread.startsWith('task')) switchTab('shot');
         else if (targetThread.startsWith('shot')) switchTab('shot');
         else if (targetThread.startsWith('dm') || targetThread.startsWith('dyn_')) switchTab('dm');
         else if (targetThread === 'system_notice' || targetThread === 'morning') switchTab('notice');
         showThread(targetThread);
-      } else {
-        console.warn('thread not found:', targetThread);
       }
-    }, 100);
+    }, 200);
   }
 })();
 
@@ -766,7 +790,7 @@ if (_convMembers) _convMembers.textContent = '';
 {% endif %}
 
 // 殿御命 2026-06-04: real Calendar DM thread click → 右ペイン描画 (URL 不変・リロードでは空)
-function openRealThread(threadId) {
+async function openRealThread(threadId) {
   let dataEl = document.getElementById('real-threads-data');
   if (!dataEl) return;
   let payload = {};
@@ -783,22 +807,39 @@ function openRealThread(threadId) {
   document.getElementById('conv-title').textContent = names.length ? names.join(', ') : ('thread ' + t.thread_id);
   const updated = t.updated_at || '';
   document.getElementById('conv-members').textContent = (isMulti ? `👥 ${parts.length} 名 thread · ` : '') + updated.slice(0, 16).replace('T', ' ');
-  // body (last_message 1 件描画 — 全件取得 EP 実装後に切替予定)
+  // body 殿御命 2026-06-05 (nibu Phase 2): 全件取得 EP に切替
   const area = document.getElementById('conv-messages');
-  const time = updated.slice(11, 16);
   const nameLine = names.length ? names.join(', ') : ('thread ' + t.thread_id);
-  // 殿御命 2026-06-04: 本文中の URL を 緑ボタンに変換 (QC ビューア リンク)
-  area.innerHTML = `
-    <div class="flex justify-start">
-      <div class="max-w-xl">
-        <div class="text-[10px] text-slate-400 mb-1">${_escapeHtml(nameLine)} · ${_escapeHtml(time)}</div>
-        <div class="bg-white border border-slate-200 p-3 bubble-left text-sm text-slate-700 whitespace-pre-wrap">${_renderDmBody(t.last_message || '(まだメッセージなし)')}</div>
-      </div>
-    </div>
-    <p class="text-[10px] text-center text-slate-300 mt-4">📌 直近 1 件のみ表示 — Calendar 側 messages 取得 EP 実装され次第 全件取得予定</p>
-  `;
+  area.innerHTML = '<div class="text-center text-slate-400 text-xs py-8">📥 メッセージ取得中...</div>';
+  try {
+    const resp = await fetch('/api/bff/dm/threads/' + t.thread_id + '/messages', { credentials: 'include' });
+    if (resp.ok) {
+      const messages = await resp.json();
+      const myCuid = parseInt(document.body.dataset.myCuid || '0', 10);
+      const partMap = {};
+      parts.forEach(p => { if (p && p.user_id != null) partMap[parseInt(p.user_id, 10)] = p.name; });
+      area.innerHTML = (messages || []).map(m => {
+        const isMe = (m.sender_id != null) && (parseInt(m.sender_id, 10) === myCuid);
+        const senderName = isMe ? '自分' : (partMap[parseInt(m.sender_id, 10)] || ('uid ' + m.sender_id));
+        const time = (m.created_at || '').slice(11, 16);
+        const date = (m.created_at || '').slice(0, 10);
+        return `
+          <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-xl">
+              <div class="text-[10px] text-slate-400 mb-1 ${isMe ? 'text-right' : ''}">${_escapeHtml(senderName)} · ${_escapeHtml(date)} ${_escapeHtml(time)}</div>
+              <div class="bg-${isMe ? 'indigo-50' : 'white'} border border-${isMe ? 'indigo-100' : 'slate-200'} p-3 ${isMe ? 'bubble-right' : 'bubble-left'} text-sm text-slate-700 whitespace-pre-wrap">${_renderDmBody(m.body || '')}</div>
+            </div>
+          </div>`;
+      }).join('') || '<p class="text-center text-slate-400 text-xs">(まだメッセージなし)</p>';
+    } else {
+      area.innerHTML = '<div class="text-center text-rose-500 text-xs py-8">メッセージ取得失敗 HTTP ' + resp.status + '</div>';
+    }
+  } catch (e) {
+    area.innerHTML = '<div class="text-center text-rose-500 text-xs py-8">取得例外: ' + _escapeHtml(e.message) + '</div>';
+  }
   area.scrollTop = area.scrollHeight;
-  // 既読化 + tab badge 再計算
+  // 殿御命 2026-06-05 (nibu Phase 2): server 既読 mark + localStorage 二重管理
+  fetch('/api/bff/dm/threads/' + t.thread_id + '/read', { method: 'POST', credentials: 'include' }).catch(() => {});
   try { localStorage.setItem('score_dm_read_' + t.thread_id, t.updated_at || ''); } catch(e) {}
   // active row 強調
   document.querySelectorAll('[data-real-thread-row]').forEach(el => el.classList.remove('bg-indigo-50', 'border-l-4', 'border-indigo-400'));

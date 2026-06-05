@@ -116,8 +116,169 @@
 
   // ===== keyframes 注入 =====
   const sty = document.createElement('style');
-  sty.textContent = '@keyframes scoreToastIn{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}';
+  sty.textContent = '@keyframes scoreToastIn{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}@keyframes scoreDrawerIn{from{transform:translateX(100%);}to{transform:translateX(0);}}';
   document.head.appendChild(sty);
+
+  // ===== 殿御命 2026-06-05: 共通 Thread Drawer (右からスライドイン) =====
+  let _drawerEl = null;
+  function _ensureDrawer() {
+    if (_drawerEl) return _drawerEl;
+    const wrap = document.createElement('div');
+    wrap.id = 'score-thread-drawer';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:9997;display:none;';
+    wrap.innerHTML = `
+      <div id="score-drawer-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.3);backdrop-filter:blur(4px);" onclick="window._closeThreadDrawer()"></div>
+      <div id="score-drawer-panel" style="position:absolute;top:0;right:0;width:min(480px,90vw);height:100vh;background:linear-gradient(135deg,#E0F2FE 0%,#F3E8FF 50%,#FCE7F3 100%);box-shadow:-8px 0 32px rgba(0,0,0,0.15);display:flex;flex-direction:column;animation:scoreDrawerIn .25s ease;font-family:system-ui,sans-serif;">
+        <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.4);backdrop-filter:blur(12px);display:flex;align-items:center;gap:12px;">
+          <div id="score-drawer-icon" style="width:40px;height:40px;border-radius:50%;background:#a78bfa20;display:flex;align-items:center;justify-content:center;font-size:18px;">💬</div>
+          <div style="flex:1;min-width:0;">
+            <p id="score-drawer-title" style="font-weight:900;color:#1e293b;font-size:14px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">thread を読込中...</p>
+            <p id="score-drawer-meta" style="font-size:11px;color:#64748b;margin:2px 0 0;"></p>
+          </div>
+          <a id="score-drawer-fullview" href="#" style="font-size:11px;color:#6366f1;text-decoration:underline;flex-shrink:0;">全画面で開く</a>
+          <button onclick="window._closeThreadDrawer()" style="background:none;border:none;font-size:24px;color:#64748b;cursor:pointer;line-height:1;padding:0 4px;">×</button>
+        </div>
+        <div id="score-drawer-messages" style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px;"></div>
+        <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.6);background:rgba(255,255,255,0.3);">
+          <div style="display:flex;gap:8px;">
+            <input id="score-drawer-input" type="text" placeholder="メッセージを入力 (Enter で送信)" style="flex:1;background:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.6);border-radius:12px;padding:10px 14px;font-size:13px;outline:none;">
+            <button onclick="window._drawerSendMessage()" style="background:#6366f1;color:white;border:none;border-radius:12px;padding:10px 16px;font-weight:bold;font-size:13px;cursor:pointer;">送信</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    _drawerEl = wrap;
+    // Enter で送信
+    const inp = document.getElementById('score-drawer-input');
+    if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); window._drawerSendMessage(); } });
+    return wrap;
+  }
+
+  window._openThreadDrawer = async function(threadId) {
+    _ensureDrawer();
+    document.getElementById('score-thread-drawer').style.display = 'block';
+    document.getElementById('score-drawer-title').textContent = 'thread ' + threadId + ' を読込中...';
+    document.getElementById('score-drawer-meta').textContent = '';
+    document.getElementById('score-drawer-messages').innerHTML = '<p style="text-align:center;color:#94a3b8;font-size:12px;margin-top:24px;">📥 読込中...</p>';
+    document.getElementById('score-drawer-fullview').href = '/messages?thread=' + threadId;
+    window._drawerCurrentThread = threadId;
+    try {
+      // thread meta (participants)
+      const metaResp = await fetch('/api/bff/dm/threads_meta', { credentials: 'include' });
+      let participants = [];
+      let lastMsg = '';
+      if (metaResp.ok) {
+        const metaData = await metaResp.json();
+        const t = (metaData.threads || []).find(x => String(x.thread_id) === String(threadId));
+        if (t) {
+          // 単に thread_id + updated_at しか持たぬので 別経路で詳細取れぬ → messages 取得後 sender_id で推測
+        }
+      }
+      // messages 全件
+      const resp = await fetch('/api/bff/dm/threads/' + threadId + '/messages', { credentials: 'include' });
+      if (resp.ok) {
+        const messages = await resp.json() || [];
+        const myCuid = parseInt(document.body.dataset.myCuid || '0', 10);
+        const senders = new Set();
+        messages.forEach(m => { if (m.sender_id != null) senders.add(parseInt(m.sender_id, 10)); });
+        document.getElementById('score-drawer-title').textContent = 'thread ' + threadId;
+        document.getElementById('score-drawer-meta').textContent = `${messages.length} 件 · 参加 ${senders.size} 名`;
+        const area = document.getElementById('score-drawer-messages');
+        area.innerHTML = messages.map(m => {
+          const isMe = (m.sender_id != null) && (parseInt(m.sender_id, 10) === myCuid);
+          const time = (m.created_at || '').slice(11, 16);
+          const date = (m.created_at || '').slice(0, 10);
+          return `
+            <div style="display:flex;${isMe ? 'justify-content:flex-end' : 'justify-content:flex-start'};">
+              <div style="max-width:85%;">
+                <p style="font-size:10px;color:#94a3b8;margin:0 0 4px;${isMe ? 'text-align:right' : ''}">uid ${m.sender_id} · ${_esc(date)} ${_esc(time)}</p>
+                <div style="background:${isMe ? '#eef2ff' : 'white'};border:1px solid ${isMe ? '#c7d2fe' : '#e2e8f0'};border-radius:12px;${isMe ? 'border-bottom-right-radius:4px' : 'border-bottom-left-radius:4px'};padding:10px 14px;font-size:13px;color:#334155;white-space:pre-wrap;">${_renderDrawerBody(m.body || '')}</div>
+              </div>
+            </div>`;
+        }).join('') || '<p style="text-align:center;color:#94a3b8;">(まだメッセージなし)</p>';
+        area.scrollTop = area.scrollHeight;
+        // 既読 mark
+        fetch('/api/bff/dm/threads/' + threadId + '/read', { method: 'POST', credentials: 'include' }).catch(() => {});
+        try { window.dispatchEvent(new CustomEvent('score:dm-read-updated')); } catch(e) {}
+      } else {
+        document.getElementById('score-drawer-messages').innerHTML = '<p style="text-align:center;color:#dc2626;">取得失敗 HTTP ' + resp.status + '</p>';
+      }
+    } catch (e) {
+      document.getElementById('score-drawer-messages').innerHTML = '<p style="text-align:center;color:#dc2626;">例外: ' + _esc(e.message) + '</p>';
+    }
+  };
+
+  window._closeThreadDrawer = function() {
+    if (_drawerEl) _drawerEl.style.display = 'none';
+  };
+
+  window._drawerSendMessage = async function() {
+    const inp = document.getElementById('score-drawer-input');
+    if (!inp || !window._drawerCurrentThread) return;
+    const text = inp.value.trim();
+    if (!text) return;
+    try {
+      const resp = await fetch('/api/bff/dm', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ thread_id: window._drawerCurrentThread, body: text })
+      });
+      if (resp.ok) {
+        inp.value = '';
+        // 再 fetch でリスト更新
+        window._openThreadDrawer(window._drawerCurrentThread);
+      }
+    } catch(e) {}
+  };
+
+  function _renderDrawerBody(text) {
+    const esc = _esc(text);
+    const lines = esc.split('\n');
+    const urls = [];
+    const remaining = [];
+    for (const ln of lines) {
+      const m = ln.match(/^(https?:\/\/[^\s<]+|\/[\w/?=&%.\-]+)$/);
+      if (m) urls.push(m[1]); else remaining.push(ln);
+    }
+    let html = remaining.join('\n');
+    if (urls.length) {
+      html += '\n\n' + urls.map(u => `<a href="${u}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;background:#10b981;color:white;font-weight:bold;padding:6px 14px;border-radius:10px;text-decoration:none;font-size:11px;">▶ 開く</a>`).join(' ');
+    }
+    return html;
+  }
+
+  // 殿御命 2026-06-05: /messages?thread=N link を event delegation で intercept
+  // (現在 page が /messages でなければ drawer open)
+  if (!location.pathname.startsWith('/messages')) {
+    console.log('[score-notif] thread drawer event delegation 登録 (path=' + location.pathname + ')');
+    document.addEventListener('click', (ev) => {
+      // selector を緩く: thread= param 含む全 link 対象
+      const a = ev.target.closest('a[href*="thread="]');
+      if (!a) return;
+      console.log('[score-notif] thread link click detected:', a.href);
+      let tid = null;
+      try {
+        const url = new URL(a.href, location.origin);
+        tid = url.searchParams.get('thread');
+      } catch(e) {
+        // fallback: href 文字列 parse
+        const m = (a.getAttribute('href') || '').match(/thread=([^&]+)/);
+        if (m) tid = m[1];
+      }
+      if (tid && /^\d+$/.test(tid)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        console.log('[score-notif] opening drawer for thread=' + tid);
+        window._openThreadDrawer(tid);
+      } else {
+        console.log('[score-notif] thread id not numeric, fall through:', tid);
+      }
+    }, true);  // capture phase で interception
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') window._closeThreadDrawer(); });
+  } else {
+    console.log('[score-notif] thread drawer skipped (path=/messages)');
+  }
 
   // ===== 起動 =====
   function _init(){

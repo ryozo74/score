@@ -72,13 +72,217 @@ router = APIRouter()
 
 
 @router.post("/api/bff/retakes")
-def post_retakes(
-    body: dict,
-    actor_id: str = Depends(get_actor_id),
-):
+async def post_retakes(request: Request, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05: Retake 発行 + SHOT thread に「🔁 Retake 発令」 投稿 (multipart 対応)"""
     client = get_calendar_client()
-    result = client.post_retakes(body, actor_user_id=actor_id)
-    return JSONResponse(content=result, headers={"X-Actor-User-Id": actor_id})
+    # multipart or JSON 両対応
+    content_type = request.headers.get("content-type", "")
+    if "multipart" in content_type:
+        form = await request.form()
+        body = {k: v for k, v in form.items() if not k.startswith("ref_")}
+        import json as _json_m
+        for jf in ("markers", "comments"):
+            v = body.get(jf)
+            if isinstance(v, str):
+                try: body[jf] = _json_m.loads(v)
+                except Exception: body[jf] = []
+        # 殿御命 2026-06-05: ref files 実保存 (/tmp/score_retake_refs/{retake_id}/)
+        from pathlib import Path as _Path
+        import time as _time
+        _retake_id = f"r_{int(_time.time())}_{body.get('shot_id','?')}"
+        ref_dir = _Path(f"/tmp/score_retake_refs/{_retake_id}")
+        ref_dir.mkdir(parents=True, exist_ok=True)
+        ref_imgs_saved = []
+        ref_videos_saved = []
+        for k, v in form.items():
+            if not (k.startswith("ref_img_") or k.startswith("ref_video_")):
+                continue
+            if hasattr(v, "filename") and hasattr(v, "read"):
+                try:
+                    fn = (v.filename or k).replace("/", "_")
+                    p = ref_dir / fn
+                    content = await v.read()
+                    p.write_bytes(content)
+                    if k.startswith("ref_img_"): ref_imgs_saved.append(fn)
+                    else: ref_videos_saved.append(fn)
+                except Exception:
+                    pass
+        body["retake_id"] = _retake_id
+        body["ref_imgs"] = ref_imgs_saved
+        body["ref_videos"] = ref_videos_saved
+        body["ref_img_count"] = len(ref_imgs_saved)
+        body["ref_video_count"] = len(ref_videos_saved)
+        # retake meta を別途 JSON 保存 (view 用)
+        meta_path = ref_dir / "meta.json"
+        try:
+            meta_path.write_text(_json_m.dumps({
+                "retake_id": _retake_id,
+                "shot_id": body.get("shot_id"),
+                "task_id": body.get("task_id"),
+                "asset_id": body.get("asset_id"),
+                "direction": body.get("direction") or "",
+                "priority": body.get("priority") or "high",
+                "due_date": body.get("due_date") or "",
+                "reference_url": body.get("reference_url") or "",
+                "markers": body.get("markers") or [],
+                "comments": body.get("comments") or [],
+                "ref_imgs": ref_imgs_saved,
+                "ref_videos": ref_videos_saved,
+                "submitted_at": __import__("datetime").datetime.now().isoformat(),
+                "submitted_by": actor_id,
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+    else:
+        body = await request.json()
+
+    # 殿御命 2026-06-05: multipart の場合 全 field string → int 変換
+    def _to_int(v):
+        try: return int(v) if v not in (None, "", "None") else None
+        except (ValueError, TypeError): return None
+    shot_id = _to_int(body.get("shot_id"))
+    task_id = _to_int(body.get("task_id"))
+    asset_id = _to_int(body.get("asset_id"))
+    direction = (body.get("direction") or "").strip()
+    priority = body.get("priority") or "high"
+    due_date = body.get("due_date") or ""
+    comments_list = body.get("comments") or []
+    markers_list = body.get("markers") or []
+    ref_url = (body.get("reference_url") or "").strip()
+
+    # 階層解決
+    from app.adapters.calendar_client import _to_calendar_uid
+    sender_cuid = _to_calendar_uid(actor_id)
+    sender_cuid_int = int(sender_cuid) if sender_cuid is not None else None
+    proj_name = seq_code = shot_code = task_type = ""
+    pid = None
+    if shot_id:
+        try:
+            si = client.get_shot_detail(int(shot_id), actor_user_id=actor_id) or {}
+            shot_code = si.get("shotID") or si.get("name") or ""
+            seq_code = si.get("seqID") or ""
+            pid = si.get("project_id")
+        except Exception: pass
+        if not shot_code or not seq_code or pid is None:
+            try:
+                s_dto = client.get_shot(int(shot_id), actor_user_id=actor_id)
+                if s_dto:
+                    if not shot_code: shot_code = getattr(s_dto, "shot_code", "") or getattr(s_dto, "name", "")
+                    if not seq_code: seq_code = getattr(s_dto, "seq_code", "") or ""
+                    if pid is None: pid = getattr(s_dto, "project_id", None)
+            except Exception: pass
+        if not shot_code: shot_code = f"SHOT_{int(shot_id):03d}"
+        if task_id:
+            try:
+                for tk in (client.get_tasks(int(shot_id), actor_user_id=actor_id) or []):
+                    tid = tk.get("id") or tk.get("task_id") if isinstance(tk, dict) else getattr(tk, "task_id", None)
+                    if tid == task_id:
+                        task_type = (tk.get("type") if isinstance(tk, dict) else getattr(tk, "type", "")) or ""
+                        break
+            except Exception: pass
+        if pid is not None and not proj_name and hasattr(client, "get_project"):
+            try:
+                p = client.get_project(int(pid), actor_user_id=actor_id) or {}
+                proj_name = p.get("name") or ""
+            except Exception: pass
+
+    # 殿御命 2026-06-05: Calendar enum に 'retake' なし → 'in-progress' に PATCH (Compositor 再作業)
+    # 並行で nibu 殿に 'retake' enum 追加依頼予定
+    if task_id and hasattr(client, "patch_task"):
+        try: client.patch_task(int(task_id), {"status": "in-progress"}, actor_user_id=actor_id)
+        except Exception: pass
+
+    # SHOT thread に Retake 発令 投稿
+    thread_id = None
+    push_result = {"sent": 0, "failed": 0, "details": []}
+    sse_result = {"delivered": 0, "skipped_no_listener": 0}
+    try:
+        # 既存 thread を探す or 新規作成 (post_dm_thread = task_id 単位 で 一意 or 新規)
+        # 簡易: shot 関係者 PM/Director/Lead + sender でカレンダー側 thread 作成
+        FALLBACK_PM = 52
+        roles = {}
+        if pid is not None and hasattr(client, "get_project_roles"):
+            try: roles = client.get_project_roles(int(pid), actor_user_id=actor_id) or {}
+            except Exception: pass
+        parts = set()
+        parts.add(int(roles.get("pm") or FALLBACK_PM))
+        if roles.get("director"): parts.add(int(roles["director"]))
+        if roles.get("lead") or roles.get("lighting_lead"): parts.add(int(roles.get("lead") or roles.get("lighting_lead")))
+        # assignee 自動追加 (task)
+        if task_id:
+            try:
+                tr = client.get_task(int(task_id), actor_user_id=actor_id) or {} if hasattr(client, "get_task") else {}
+                a = tr.get("assigned_to") or tr.get("assignee_id")
+                if a: parts.add(int(a))
+            except Exception: pass
+        if sender_cuid_int is not None: parts.add(sender_cuid_int)
+        participants = sorted(parts)
+
+        # sender name
+        sender_name = actor_id
+        try:
+            me = client.get_me(actor_user_id=actor_id)
+            nm = getattr(me, "name", "") or (getattr(me, "email", "") or "").split("@")[0]
+            if nm: sender_name = nm
+        except Exception: pass
+
+        # 殿御命 2026-06-05 (②採択): Retake 通知 URL は retake_view へ
+        import os as _os
+        public_base = _os.environ.get("SCORE_PUBLIC_URL", "").rstrip("/")
+        qc_path = f"/retake_view/{shot_id}/{task_id}" if (shot_id and task_id) else f"/qc/{shot_id}"
+        qc_link = (public_base + qc_path) if public_base else qc_path
+
+        # body 構築
+        hier = [p for p in (proj_name, seq_code, shot_code, task_type) if p]
+        title_line = " / ".join(hier) if hier else "(対象未指定)"
+        lines = [
+            "🔁 Retake 発令",
+            title_line,
+            "",
+            f"優先度: {priority} / 期日: {due_date or '(未指定)'}",
+        ]
+        if direction: lines.append(f"全体方針: {direction[:300]}")
+        if markers_list: lines.append(f"マーカー: {len(markers_list)} 点 ({', '.join(markers_list[:5])})")
+        if comments_list:
+            lines.append(f"コメント ({len(comments_list)} 件):")
+            for c in comments_list[:5]:
+                if isinstance(c, dict):
+                    lines.append(f"  ⏱️ {c.get('tc','')}: {(c.get('text','') or '')[:80]}")
+        if ref_url: lines.append(f"参考 URL: {ref_url}")
+        nimg = body.get("ref_img_count", 0); nvid = body.get("ref_video_count", 0)
+        if nimg or nvid: lines.append(f"添付: 静止画 {nimg} / 動画 {nvid}")
+        if qc_link:
+            lines.append("")
+            lines.append(qc_link)
+        lines.append(""); lines.append(f"— {sender_name} (Director)")
+        body_text = "\n".join(lines)
+
+        if hasattr(client, "post_dm_thread") and len(participants) >= 2:
+            thread_resp = client.post_dm_thread(participant_ids=participants, task_id=task_id, actor_user_id=actor_id)
+            thread_id = thread_resp.get("thread_id") or thread_resp.get("id")
+            if thread_id and hasattr(client, "post_dm"):
+                client.post_dm(int(thread_id), body_text, actor_user_id=actor_id)
+                # push / SSE 配信
+                from app.routers.pages_notif_settings import get_user_prefs
+                from app.routers.sse_notifications import push_sse_event
+                payload = {"title": f"🔁 Retake 発令: {title_line}", "body": (direction or "新たな Retake が発令されました")[:200], "url": qc_path, "tag": f"score-retake-{thread_id}"}
+                push_t = []; sse_t = []
+                for cuid in participants:
+                    if sender_cuid_int is not None and cuid == sender_cuid_int: continue
+                    pref = get_user_prefs(int(cuid))
+                    if pref.get("channels", {}).get("push", True): push_t.append(cuid)
+                    if pref.get("channels", {}).get("sse", True): sse_t.append(cuid)
+                if push_t: push_result = _push_to_cuids(push_t, payload)
+                if sse_t: sse_result = push_sse_event(sse_t, "notif", payload)
+    except Exception as e:
+        return JSONResponse(content={"ok": False, "error": str(e)[:200]}, status_code=500)
+
+    # Calendar post_retakes も並行 (旧経路)
+    try:
+        result = client.post_retakes(body, actor_user_id=actor_id) if hasattr(client, "post_retakes") else {}
+    except Exception:
+        result = {}
+    return JSONResponse(content={"ok": True, "thread_id": thread_id, "participants": list(parts) if 'parts' in dir() else [], "qc_link": qc_link if 'qc_link' in dir() else "", "push_result": push_result, "sse_result": sse_result, "calendar_result": result}, headers={"X-Actor-User-Id": actor_id})
 
 
 @router.post("/api/bff/shots/{id}/approve")
@@ -137,8 +341,31 @@ def post_troubles(
     body: dict,
     actor_id: str = Depends(get_actor_id),
 ):
+    """殿御命 2026-06-05 (C 案準拠): Lead 不在 + mention 無 → 拒否"""
     client = get_calendar_client()
-    result = client.post_troubles(body, actor_user_id=actor_id)
+    shot_id = body.get("shot_id")
+    mentions = body.get("mentions") or []
+    # Lead 解決 (shot → project → roles)
+    lead_uid = None
+    if shot_id and hasattr(client, "get_shot_detail"):
+        try:
+            shot_info = client.get_shot_detail(int(shot_id), actor_user_id=actor_id) or {}
+            project_id = shot_info.get("project_id")
+            if project_id is not None and hasattr(client, "get_project_roles"):
+                roles = client.get_project_roles(int(project_id), actor_user_id=actor_id) or {}
+                lead_uid = roles.get("lead") or roles.get("lighting_lead")
+        except Exception:
+            pass
+    if lead_uid is None and not mentions:
+        raise HTTPException(
+            status_code=400,
+            detail="Lead 未設定 project: 送信先を mention で指定してください (代替担当を選択)"
+        )
+    # Calendar post_troubles に pass-through (mentions も付加)
+    payload = {**body, "mentions": mentions}
+    if lead_uid is not None:
+        payload.setdefault("lead_uid", int(lead_uid))
+    result = client.post_troubles(payload, actor_user_id=actor_id)
     return JSONResponse(content=result, headers={"X-Actor-User-Id": actor_id})
 
 
@@ -230,26 +457,19 @@ async def post_asset_upload(
     #         (殿御指摘 2026-06-04: 個別 DM ではなく SHOT 関係者 全員に届くべき)
     # 暫定 hardcode: Calendar 側に project.director_id / pm_id 解決 EP 不在 (Phase 2 nibu 殿差替)
     if submission_type in ("qc", "review"):
-        # project / seq / shot / task 階層解決 (殿御命 2026-06-04: タイトル階層化)
+        # project / seq / shot / task 階層解決 (殿御命 2026-06-04/05: get_shot_detail 空時 get_shot DTO + get_tasks fallback)
         proj_name = ""
         seq_code = ""
         shot_code = ""
         task_type = ""
         shot_assignee_uids: set[int] = set()
+        pid = None
         if shot_id:
             try:
-                shot_info = client.get_shot_detail(shot_id, actor_user_id=actor_id)
-                shot_code = shot_info.get("shotID") or shot_info.get("name") or f"SHOT_{shot_id:03d}"
+                shot_info = client.get_shot_detail(shot_id, actor_user_id=actor_id) or {}
+                shot_code = shot_info.get("shotID") or shot_info.get("name") or ""
                 seq_code = shot_info.get("seqID") or shot_info.get("seq_code") or shot_info.get("sequence") or ""
                 pid = shot_info.get("project_id")
-                if pid is not None:
-                    try:
-                        for p in (client.get_projects(actor_user_id=actor_id) or []):
-                            if isinstance(p, dict) and p.get("id") == pid:
-                                proj_name = p.get("name") or ""
-                                break
-                    except Exception:
-                        pass
                 # SHOT 内 全 task の assignee + 対象 task の type 取得
                 for tk in (shot_info.get("task_list") or shot_info.get("tasks") or []):
                     if isinstance(tk, dict):
@@ -261,6 +481,44 @@ async def post_asset_upload(
                             task_type = tk.get("type") or tk.get("task_type") or ""
             except Exception:
                 pass
+            # 殿御命 2026-06-05: fallback (get_shot_detail 空時)
+            if not shot_code or not seq_code or pid is None:
+                try:
+                    s_dto = client.get_shot(int(shot_id), actor_user_id=actor_id)
+                    if s_dto:
+                        if not shot_code: shot_code = getattr(s_dto, "shot_code", "") or getattr(s_dto, "name", "")
+                        if not seq_code: seq_code = getattr(s_dto, "seq_code", "") or ""
+                        if pid is None: pid = getattr(s_dto, "project_id", None)
+                except Exception:
+                    pass
+            if not shot_code:
+                shot_code = f"SHOT_{shot_id:03d}"
+            # task_type fallback: get_tasks(shot_id)
+            if not task_type and task_id:
+                try:
+                    for tk in (client.get_tasks(int(shot_id), actor_user_id=actor_id) or []):
+                        tid = tk.get("id") or tk.get("task_id") if isinstance(tk, dict) else getattr(tk, "task_id", None)
+                        if tid == task_id:
+                            task_type = (tk.get("type") or tk.get("task_type") if isinstance(tk, dict) else getattr(tk, "type", "")) or ""
+                            break
+                except Exception:
+                    pass
+            # project_name: get_my_projects 経由 (sender 参加分)
+            if pid is not None and not proj_name:
+                try:
+                    for p in (client.get_my_projects(actor_user_id=actor_id) or []):
+                        if isinstance(p, dict) and p.get("id") == pid:
+                            proj_name = p.get("name") or ""
+                            break
+                except Exception:
+                    pass
+            # 殿御命 2026-06-05: sender 未参加でも get_project (admin) fallback
+            if pid is not None and not proj_name and hasattr(client, "get_project"):
+                try:
+                    p = client.get_project(int(pid), actor_user_id=actor_id) or {}
+                    proj_name = p.get("name") or ""
+                except Exception:
+                    pass
 
         # mention 列 → uid 解決
         def _resolve_uids(raw_csv: str | None) -> set[int]:
@@ -284,20 +542,48 @@ async def post_asset_upload(
 
         mention_uids = _resolve_uids(mentions)
 
-        # SHOT 関係者 base (memory 御方針: PM=Tanaka, Director=Yamada, Lighting Lead=Kato)
-        # 暫定 hardcode: Score uid→Cal uid: 1→52, 10→53, 20→54
-        SHOT_BASE_PM_CUID = 52
-        SHOT_BASE_DIRECTOR_CUID = 53
-        SHOT_BASE_LIGHTING_LEAD_CUID = 54
+        # 殿御命 2026-06-05 (C 案): Director 不在 project は mention 必須
+        # PM は project 未設定でも fallback で必ず含む (殿御方針「両方とも PM 必須」)
+        FALLBACK_PM_CUID = 52
         from app.adapters.calendar_client import _to_calendar_uid
         sender_cuid = _to_calendar_uid(actor_id)
         sender_cuid_int = int(sender_cuid) if sender_cuid is not None else None
 
-        # SHOT thread participants: PM + Director + Lead + task assignees + mention + sender
+        # project_id 解決して roles 取得
+        project_roles = {}
+        try:
+            shot_info_for_proj = client.get_shot_detail(shot_id, actor_user_id=actor_id) if shot_id else {}
+            project_id = shot_info_for_proj.get("project_id")
+            if project_id is not None and hasattr(client, "get_project_roles"):
+                project_roles = client.get_project_roles(int(project_id), actor_user_id=actor_id) or {}
+        except Exception:
+            project_roles = {}
+
+        director_uid = project_roles.get("director")
+        # 殿御命 2026-06-05 (C 案): Director 不在 + mention 無 → 拒否
+        if director_uid is None and not mention_uids:
+            raise HTTPException(
+                status_code=400,
+                detail="Director 未設定 project: 送信先を mention で指定してください (代替担当を選択して御願い致す)"
+            )
+
+        # SHOT thread participants 構築
         shot_member_uids: set[int] = set()
-        shot_member_uids |= {SHOT_BASE_PM_CUID, SHOT_BASE_DIRECTOR_CUID, SHOT_BASE_LIGHTING_LEAD_CUID}
+        # PM (必ず含む・hardcode fallback OK)
+        pm_uid = project_roles.get("pm")
+        shot_member_uids.add(int(pm_uid) if pm_uid is not None else FALLBACK_PM_CUID)
+        # Director (project 設定あれば追加・無ければ mention で代替)
+        if director_uid is not None:
+            shot_member_uids.add(int(director_uid))
+        # Lead (project 設定あれば追加・無ければ skip — 任意)
+        lead_uid = project_roles.get("lead") or project_roles.get("lighting_lead")
+        if lead_uid is not None:
+            shot_member_uids.add(int(lead_uid))
+        # SHOT 内 task assignees
         shot_member_uids |= shot_assignee_uids
+        # mention (Director 不在時の代替担当 含む)
         shot_member_uids |= mention_uids
+        # sender
         if sender_cuid_int is not None:
             shot_member_uids.add(sender_cuid_int)
         participants = sorted(shot_member_uids)
@@ -311,12 +597,21 @@ async def post_asset_upload(
         except Exception:
             pass
 
-        # QC ビューアリンク (殿御命: 所定の review 対象リンク必須)
+        # QC ビューアリンク (殿御命 2026-06-05: task_id + asset_id 含めた正規 URL 自動生成)
         import os as _os
         public_base = _os.environ.get("SCORE_PUBLIC_URL", "").rstrip("/")
         qc_link = ""
         if shot_id:
             path = f"/qc/{shot_id}"
+            qp = []
+            if task_id:
+                qp.append(f"task_id={task_id}")
+            # 提出されたばかりの asset id を埋める (result.id = 新 asset id)
+            _aid = result.get("id") if isinstance(result, dict) else None
+            if _aid:
+                qp.append(f"asset_id={_aid}")
+            if qp:
+                path += "?" + "&".join(qp)
             qc_link = (public_base + path) if public_base else path
 
         if len(participants) >= 2 and hasattr(client, "post_dm_thread"):
@@ -502,6 +797,347 @@ def push_test(actor_id: str = Depends(get_actor_id)):
     push_result = _push_to_cuids([int(cuid)], payload)
     sse_result = push_sse_event([int(cuid)], "notif", payload)
     return JSONResponse(content={"push": push_result, "sse": sse_result})
+
+
+@router.get("/api/bff/retake/refs/{retake_id}/{filename}")
+def get_retake_ref(retake_id: str, filename: str, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05: Retake 参考素材 配信"""
+    from fastapi.responses import FileResponse
+    from pathlib import Path as _P
+    # path traversal 防止: retake_id と filename に / 含まれぬ
+    if "/" in retake_id or "/" in filename or ".." in retake_id or ".." in filename:
+        raise HTTPException(status_code=400, detail="invalid path")
+    p = _P(f"/tmp/score_retake_refs/{retake_id}/{filename}")
+    if not p.exists() or not p.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(str(p))
+
+
+@router.post("/api/bff/qc/notify_existing")
+async def post_qc_notify_existing(request: Request, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05: 既存 asset 参照で QC/Review 依頼を SHOT thread に通知 (新 asset upload なし)
+    body: {asset_id, submission_type ('qc'|'review'), mentions (csv), comment(optional)}"""
+    body = await request.json()
+    asset_id = body.get("asset_id")
+    submission_type = body.get("submission_type") or "qc"
+    mentions = body.get("mentions") or ""
+    comment = (body.get("comment") or "").strip()
+    if not asset_id:
+        raise HTTPException(status_code=400, detail="asset_id 必須")
+
+    client = get_calendar_client()
+    # 既存 asset 情報取得 — shot_id から asset_list 走査
+    shot_id_from_asset = None
+    task_id_from_asset = None
+    version_from_asset = None
+    file_path = None
+    # heuristic: body に shot_id/task_id があれば優先
+    shot_id = body.get("shot_id")
+    task_id = body.get("task_id")
+    if shot_id and hasattr(client, "get_shot_detail"):
+        try:
+            shot_info = client.get_shot_detail(int(shot_id), actor_user_id=actor_id) or {}
+            for a in (shot_info.get("asset_list") or []):
+                if isinstance(a, dict) and (a.get("id") == int(asset_id)):
+                    task_id_from_asset = a.get("task_id")
+                    version_from_asset = a.get("version")
+                    file_path = a.get("file_path")
+                    shot_id_from_asset = a.get("shot_id")
+                    break
+        except Exception:
+            pass
+    shot_id = shot_id_from_asset or shot_id
+    task_id = task_id_from_asset or task_id
+    if not shot_id:
+        raise HTTPException(status_code=400, detail="asset から shot_id 解決不可")
+
+    # 既存 POST /api/bff/assets と同じ thread + body 構築 logic を再利用
+    # 階層解決 (殿御命 2026-06-05: get_shot_detail 空時 get_shot DTO + get_tasks fallback)
+    proj_name, seq_code, shot_code, task_type = "", "", "", ""
+    shot_assignee_uids: set[int] = set()
+    pid = None
+    try:
+        shot_info = client.get_shot_detail(int(shot_id), actor_user_id=actor_id) or {}
+        shot_code = shot_info.get("shotID") or shot_info.get("name") or ""
+        seq_code = shot_info.get("seqID") or ""
+        pid = shot_info.get("project_id")
+        for tk in (shot_info.get("task_list") or shot_info.get("tasks") or []):
+            if isinstance(tk, dict):
+                a = tk.get("assignee_id") or tk.get("assigned_to")
+                if a is not None:
+                    try: shot_assignee_uids.add(int(a))
+                    except (ValueError, TypeError): pass
+                if task_id and (tk.get("id") == task_id or tk.get("task_id") == task_id):
+                    task_type = tk.get("type") or tk.get("task_type") or ""
+    except Exception:
+        pass
+    # fallback: get_shot DTO で 補完
+    if not shot_code or not seq_code or pid is None:
+        try:
+            s_dto = client.get_shot(int(shot_id), actor_user_id=actor_id)
+            if s_dto:
+                if not shot_code: shot_code = getattr(s_dto, "shot_code", "") or getattr(s_dto, "name", "")
+                if not seq_code: seq_code = getattr(s_dto, "seq_code", "") or ""
+                if pid is None: pid = getattr(s_dto, "project_id", None)
+        except Exception:
+            pass
+    if not shot_code:
+        shot_code = f"SHOT_{shot_id:03d}"
+    # task_type fallback: get_tasks(shot_id)
+    if not task_type and task_id:
+        try:
+            for tk in (client.get_tasks(int(shot_id), actor_user_id=actor_id) or []):
+                tid = tk.get("id") or tk.get("task_id") if isinstance(tk, dict) else getattr(tk, "task_id", None)
+                if tid == task_id:
+                    task_type = (tk.get("type") or tk.get("task_type") if isinstance(tk, dict) else getattr(tk, "type", "")) or ""
+                    break
+        except Exception:
+            pass
+    # project_name: get_my_projects (sender 参加分)
+    if pid is not None and not proj_name:
+        try:
+            for p in (client.get_my_projects(actor_user_id=actor_id) or []):
+                if isinstance(p, dict) and p.get("id") == pid:
+                    proj_name = p.get("name") or ""
+                    break
+        except Exception:
+            pass
+    # 殿御命 2026-06-05: sender 未参加でも get_project (admin) fallback
+    if pid is not None and not proj_name and hasattr(client, "get_project"):
+        try:
+            p = client.get_project(int(pid), actor_user_id=actor_id) or {}
+            proj_name = p.get("name") or ""
+        except Exception:
+            pass
+
+    # mention 解決
+    mention_uids: set[int] = set()
+    for token in (m.strip() for m in str(mentions).split(",") if m.strip()):
+        if token.isdigit():
+            mention_uids.add(int(token))
+        elif "@" in token:
+            try:
+                for u in (client.get_users(actor_user_id=actor_id) or []):
+                    if isinstance(u, dict) and (u.get("email") or "").lower() == token.lower():
+                        uid = u.get("id") or u.get("user_id")
+                        if uid is not None:
+                            mention_uids.add(int(uid))
+                        break
+            except Exception:
+                pass
+
+    # project roles
+    from app.adapters.calendar_client import _to_calendar_uid
+    sender_cuid = _to_calendar_uid(actor_id)
+    sender_cuid_int = int(sender_cuid) if sender_cuid is not None else None
+    project_roles = {}
+    if pid is not None and hasattr(client, "get_project_roles"):
+        try:
+            project_roles = client.get_project_roles(int(pid), actor_user_id=actor_id) or {}
+        except Exception:
+            pass
+    director_uid = project_roles.get("director")
+    if director_uid is None and not mention_uids:
+        raise HTTPException(status_code=400, detail="Director 未設定 + mention 無 — 代替担当を選択してください")
+    pm_uid = project_roles.get("pm")
+    lead_uid = project_roles.get("lead") or project_roles.get("lighting_lead")
+
+    shot_member_uids: set[int] = set()
+    shot_member_uids.add(int(pm_uid) if pm_uid is not None else 52)
+    if director_uid is not None:
+        shot_member_uids.add(int(director_uid))
+    if lead_uid is not None:
+        shot_member_uids.add(int(lead_uid))
+    shot_member_uids |= shot_assignee_uids
+    shot_member_uids |= mention_uids
+    if sender_cuid_int is not None:
+        shot_member_uids.add(sender_cuid_int)
+    participants = sorted(shot_member_uids)
+
+    # sender name
+    sender_name = actor_id
+    try:
+        me = client.get_me(actor_user_id=actor_id)
+        nm = getattr(me, "name", "") or (getattr(me, "email", "") or "").split("@")[0]
+        if nm: sender_name = nm
+    except Exception:
+        pass
+
+    # QC ビューア URL
+    import os as _os
+    public_base = _os.environ.get("SCORE_PUBLIC_URL", "").rstrip("/")
+    qc_path = f"/qc/{shot_id}"
+    qp = []
+    if task_id: qp.append(f"task_id={task_id}")
+    qp.append(f"asset_id={asset_id}")
+    qc_path += "?" + "&".join(qp)
+    qc_link = (public_base + qc_path) if public_base else qc_path
+
+    # thread + body
+    thread_resp = client.post_dm_thread(participant_ids=participants, task_id=task_id, actor_user_id=actor_id)
+    thread_id = thread_resp.get("thread_id") or thread_resp.get("id")
+    head = "🔍 QC 依頼" if submission_type == "qc" else "📌 Review 依頼"
+    hier = [p for p in (proj_name, seq_code, shot_code, task_type) if p]
+    title_line = " / ".join(hier) if hier else "(対象未指定)"
+    fname = (file_path or "").split("/")[-1] if file_path else f"asset_{asset_id}"
+    ver = version_from_asset or "?"
+    lines = [
+        head, title_line, "",
+        f"既存 {ver} ({fname}) の御確認を御願い致します。",
+    ]
+    if mention_uids:
+        names = []
+        try:
+            users = client.get_users(actor_user_id=actor_id) or []
+            uid_to_name = {int(u.get("id") or u.get("user_id") or 0): (u.get("name") or (u.get("email") or "").split("@")[0]) for u in users if isinstance(u, dict)}
+            names = [uid_to_name.get(u, f"uid {u}") for u in sorted(mention_uids)]
+        except Exception:
+            names = [f"uid {u}" for u in sorted(mention_uids)]
+        lines.append("宛先: " + ", ".join(names))
+    if comment:
+        lines.append("補足: " + comment[:200])
+    if qc_link:
+        lines.append(""); lines.append(qc_link)
+    lines.append(""); lines.append(f"— {sender_name}")
+    body_text = "\n".join(lines)
+    client.post_dm(int(thread_id), body_text, actor_user_id=actor_id)
+
+    # push + SSE 配信
+    from app.routers.pages_notif_settings import get_user_prefs
+    from app.routers.sse_notifications import push_sse_event
+    payload = {
+        "title": f"{head}: {title_line}",
+        "body": f"既存 {ver} ({fname})",
+        "url": qc_path,
+        "tag": f"score-qc-{thread_id}",
+    }
+    push_targets = []; sse_targets = []
+    cat_key = "qc_request" if submission_type == "qc" else "review_request"
+    for cuid in participants:
+        # 殿御命 2026-06-05: mention 明示指定者は sender でも配信
+        if sender_cuid_int is not None and cuid == sender_cuid_int and cuid not in mention_uids:
+            continue
+        prefs = get_user_prefs(int(cuid))
+        if not prefs.get("categories", {}).get(cat_key, True):
+            continue
+        if prefs.get("channels", {}).get("push", True):
+            push_targets.append(cuid)
+        if prefs.get("channels", {}).get("sse", True):
+            sse_targets.append(cuid)
+    push_result = _push_to_cuids(push_targets, payload) if push_targets else {"sent": 0, "failed": 0, "details": []}
+    sse_result = push_sse_event(sse_targets, "notif", payload) if sse_targets else {"delivered": 0, "skipped_no_listener": 0}
+
+    return JSONResponse(content={
+        "ok": True, "thread_id": thread_id, "participants": participants,
+        "qc_link": qc_link, "asset_id": asset_id, "task_id": task_id,
+        "push_result": push_result, "sse_result": sse_result,
+    })
+
+
+@router.post("/api/bff/qc/approve")
+async def post_qc_approve_bff(request: Request, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05 (C 案): Director Approve 実 API + SHOT thread に通知投稿"""
+    body = await request.json()
+    shot_id = body.get("shot_id")
+    task_id = body.get("task_id")
+    comment = (body.get("comment") or "").strip()
+    if not shot_id:
+        raise HTTPException(status_code=400, detail="shot_id 必須")
+
+    client = get_calendar_client()
+    # 殿御命 2026-06-05: task_id 不在時 shot 内 status='review'/'reviewing' な task を auto-resolve
+    if not task_id and shot_id:
+        try:
+            tasks = client.get_tasks(int(shot_id), actor_user_id=actor_id) or []
+            for t in tasks:
+                st = getattr(t, 'status', None) or (t.get('status') if isinstance(t, dict) else None)
+                if st in ('review', 'reviewing'):
+                    task_id = getattr(t, 'task_id', None) or (t.get('id') if isinstance(t, dict) else None)
+                    if task_id: break
+        except Exception:
+            pass
+    # task status を completed に切替 (PATCH /api/tasks/{id})
+    if task_id and hasattr(client, "patch_task"):
+        try:
+            client.patch_task(int(task_id), {"status": "completed"}, actor_user_id=actor_id)
+        except Exception:
+            pass
+
+    # SHOT thread (既存の review thread を探して 通知投稿)
+    thread_notified = False
+    try:
+        if hasattr(client, "get_my_dm_threads"):
+            threads = client.get_my_dm_threads(actor_user_id=actor_id) or []
+            # task_id 一致 thread を探す (last_message に task: {task_id} 含む thread)
+            target = None
+            for t in threads:
+                last = (t.get("last_message") or "")
+                if task_id and (f"task: {task_id}" in last or f"task_id={task_id}" in last):
+                    target = t; break
+            if not target and threads:
+                # fallback: 最新 thread (sort by updated_at desc)
+                target = sorted(threads, key=lambda x: x.get("updated_at",""), reverse=True)[0] if threads else None
+            if target and hasattr(client, "post_dm"):
+                tid = target.get("thread_id") or target.get("id")
+                # sender name
+                sender_name = actor_id
+                try:
+                    me = client.get_me(actor_user_id=actor_id)
+                    sender_name = getattr(me, "name", "") or sender_name
+                except Exception:
+                    pass
+                body_lines = [
+                    "✅ Approved",
+                    f"shot: {shot_id} / task: {task_id or '-'}",
+                ]
+                if comment:
+                    body_lines.append(f"comment: {comment[:200]}")
+                body_lines.append(f"— {sender_name} (Director)")
+                client.post_dm(int(tid), "\n".join(body_lines), actor_user_id=actor_id)
+                thread_notified = True
+    except Exception:
+        pass
+
+    return JSONResponse(content={"ok": True, "shot_id": shot_id, "task_id": task_id, "thread_notified": thread_notified})
+
+
+@router.get("/api/bff/projects/{project_id}/roles")
+def get_project_roles_bff(project_id: int, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05 (C 案): UI 側 Director 不在 事前検査用 — pass-through"""
+    client = get_calendar_client()
+    if not hasattr(client, "get_project_roles"):
+        return JSONResponse(content={})
+    try:
+        roles = client.get_project_roles(project_id, actor_user_id=actor_id) or {}
+    except Exception as e:
+        return JSONResponse(content={"_error": str(e)[:120]}, status_code=200)
+    return JSONResponse(content=roles, headers={"X-Actor-User-Id": actor_id})
+
+
+@router.get("/api/bff/dm/threads/{thread_id}/messages")
+def get_dm_thread_messages_bff(thread_id: int, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05 (nibu Phase 2 EP): DM thread 全件 messages 取得 pass-through"""
+    client = get_calendar_client()
+    if not hasattr(client, "get_dm_thread_messages"):
+        return JSONResponse(content=[])
+    try:
+        messages = client.get_dm_thread_messages(thread_id, actor_user_id=actor_id) or []
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"messages 取得失敗: {str(e)[:150]}")
+    return JSONResponse(content=messages, headers={"X-Actor-User-Id": actor_id})
+
+
+@router.post("/api/bff/dm/threads/{thread_id}/read")
+def post_dm_thread_read_bff(thread_id: int, actor_id: str = Depends(get_actor_id)):
+    """殿御命 2026-06-05 (nibu Phase 2 EP): DM thread 既読 mark pass-through (冪等)"""
+    client = get_calendar_client()
+    if not hasattr(client, "post_dm_thread_read"):
+        return JSONResponse(content={"ok": False, "reason": "未実装"})
+    try:
+        result = client.post_dm_thread_read(thread_id, actor_user_id=actor_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"既読 mark 失敗: {str(e)[:150]}")
+    return JSONResponse(content=result, headers={"X-Actor-User-Id": actor_id})
 
 
 @router.get("/api/bff/dm/threads_meta")

@@ -91,11 +91,74 @@ def read_dashboard(
             "project_name": project_name_map.get(pid, ""),
             "due_date": (tk.get("due_date") or "")[:10],
         })
-    _priority_order = {"retake": 0, "reviewing": 1, "open": 2, "todo": 2, "in_progress": 3}
+    _priority_order = {"retake": 0, "reviewing": 1, "review": 1, "open": 2, "todo": 2, "in_progress": 3, "in-progress": 3, "delayed": 4}
     my_tasks.sort(key=lambda x: _priority_order.get((x.get("status") or "").lower(), 5))
 
-    # ===== QC 依頼: 自分担当 task で retake / reviewing =====
-    qc_requests = [t for t in my_tasks if (t.get("status") or "").lower() in ("retake", "reviewing")]
+    # ===== QC 依頼: 自分担当 task で retake / reviewing / review (Calendar 新 enum 含) =====
+    qc_requests = [t for t in my_tasks if (t.get("status") or "").lower() in ("retake", "reviewing", "review")]
+    # 殿御命 2026-06-05: 各 QC 依頼 task に対応する 最新 asset_id を解決 (qc_viewer 遷移用)
+    for _q in qc_requests:
+        if _q.get("shot_id") and _q.get("task_id") and hasattr(client, "get_shot_detail"):
+            try:
+                shot_dict = client.get_shot_detail(int(_q["shot_id"]), actor_user_id=actor_id) or {}
+                assets_for_task = [a for a in (shot_dict.get("asset_list") or []) if isinstance(a, dict) and a.get("task_id") == _q["task_id"]]
+                assets_for_task.sort(key=lambda a: a.get("created_at", "") or "", reverse=True)
+                if assets_for_task:
+                    _q["latest_asset_id"] = assets_for_task[0].get("id")
+            except Exception:
+                pass
+
+    # 殿御命 2026-06-05: SHOT thread で受信した「🔍 QC 依頼」「📌 Review 依頼」も dashboard に表示
+    thread_qc_requests = []
+    try:
+        if hasattr(client, "get_my_dm_threads"):
+            for _thr in (client.get_my_dm_threads(actor_user_id=actor_id) or []):
+                if not isinstance(_thr, dict):
+                    continue
+                lm = (_thr.get("last_message") or "").strip()
+                if not lm:
+                    continue
+                # 🔍 QC 依頼 / 📌 Review 依頼 を抽出 (本文先頭行)
+                first_line = lm.split("\n")[0]
+                if not (first_line.startswith("🔍 QC 依頼") or first_line.startswith("📌 Review 依頼")):
+                    continue
+                lines = lm.split("\n")
+                title = lines[1] if len(lines) > 1 else ""
+                thread_qc_requests.append({
+                    "thread_id": _thr.get("thread_id"),
+                    "kind": "qc" if first_line.startswith("🔍") else "review",
+                    "title": title,
+                    "snippet": (lines[3] if len(lines) > 3 else "")[:80],
+                    "updated_at": _thr.get("updated_at"),
+                    "participants_count": len(_thr.get("participants") or []),
+                })
+        thread_qc_requests.sort(key=lambda x: x.get("updated_at",""), reverse=True)
+    except Exception:
+        thread_qc_requests = []
+
+    # 殿御命 2026-06-05: 受信 QC/Review 依頼を「本日やるべきタスク」に統合 (task 風 entry)
+    for _r in thread_qc_requests:
+        title = _r.get("title") or "QC 依頼"
+        # 階層 title parse: "marukome / SEQ001 / SHOT_153 / comp" → shot_code = SHOT_153, task_type = comp
+        parts = [p.strip() for p in title.split("/")]
+        _shot = parts[2] if len(parts) >= 3 else title
+        _task = parts[3] if len(parts) >= 4 else ""
+        _proj = parts[0] if len(parts) >= 1 else ""
+        my_tasks.insert(0, {  # 先頭挿入 (QC 依頼を優先表示)
+            "task_id": None,
+            "thread_id": _r.get("thread_id"),
+            "shot_id": None,
+            "shot_code": _shot,
+            "seq_code": parts[1] if len(parts) >= 2 else "",
+            "task_type": _task or ("Review" if _r.get("kind") == "review" else "QC"),
+            "status": "qc_inbox" if _r.get("kind") == "qc" else "review_inbox",
+            "priority": "",
+            "project_id": None,
+            "project_name": _proj,
+            "due_date": "",
+            "is_qc_inbox": True,
+            "kind": _r.get("kind"),
+        })
 
     # ===== troubles: 自分関連 =====
     troubles_raw = []
@@ -280,6 +343,8 @@ def read_dashboard(
             "my_tasks_total": len(my_tasks),
             "qc_requests": qc_requests[:5],
             "qc_requests_total": len(qc_requests),
+            "thread_qc_requests": thread_qc_requests[:5],  # 殿御命 2026-06-05: SHOT thread 経由 QC/Review 依頼
+            "thread_qc_requests_total": len(thread_qc_requests),
             "troubles": troubles[:5],
             "troubles_total": len(troubles),
             "my_retakes": my_retakes[:5],

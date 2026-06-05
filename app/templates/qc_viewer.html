@@ -37,12 +37,24 @@
         {% endif %}
         <span class="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">QC確認</span>
       </nav>
+      {# 殿御命 2026-06-05 (B 案): admin 限定 Director 視点 preview toggle #}
+      {% if actual_role == 'admin' %}
+      <div class="flex items-center gap-2 mb-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
+        <span class="text-xs text-amber-700 font-bold">👁 視点切替 (admin 専用)</span>
+        <a href="?{% if task_id %}task_id={{ task_id }}&{% endif %}{% if asset_id %}asset_id={{ asset_id }}&{% endif %}" class="text-xs px-2 py-0.5 rounded {% if not preview_role %}bg-amber-600 text-white{% else %}bg-white text-slate-600 hover:bg-amber-100{% endif %}">通常 (admin)</a>
+        <a href="?as_role=director{% if task_id %}&task_id={{ task_id }}{% endif %}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}" class="text-xs px-2 py-0.5 rounded {% if preview_role == 'director' %}bg-purple-600 text-white{% else %}bg-white text-slate-600 hover:bg-purple-100{% endif %}">🎬 Director</a>
+        <a href="?as_role=pm{% if task_id %}&task_id={{ task_id }}{% endif %}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}" class="text-xs px-2 py-0.5 rounded {% if preview_role == 'pm' %}bg-blue-600 text-white{% else %}bg-white text-slate-600 hover:bg-blue-100{% endif %}">📋 PM</a>
+        <a href="?as_role=lead{% if task_id %}&task_id={{ task_id }}{% endif %}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}" class="text-xs px-2 py-0.5 rounded {% if preview_role == 'lead' %}bg-yellow-600 text-white{% else %}bg-white text-slate-600 hover:bg-yellow-100{% endif %}">💡 Lead</a>
+        <a href="?as_role=user{% if task_id %}&task_id={{ task_id }}{% endif %}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}" class="text-xs px-2 py-0.5 rounded {% if preview_role == 'user' %}bg-emerald-600 text-white{% else %}bg-white text-slate-600 hover:bg-emerald-100{% endif %}">🖥 User</a>
+      </div>
+      {% endif %}
       <div class="flex items-center justify-between">
-        <h1 class="font-bold text-slate-800 text-lg">🎯 <span translate="no">QC</span> ビューア — <span translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }}</span>{% if task_name %} <span translate="no">{{ task_name }}</span>{% endif %}</h1>
+        <h1 class="font-bold text-slate-800 text-lg">🎯 <span translate="no">QC</span> ビューア — <span translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }}</span>{% if task_name %} <span translate="no">{{ task_name }}</span>{% endif %}{% if preview_role %} <span class="text-xs ml-2 bg-amber-100 text-amber-700 px-2 py-0.5 rounded">👁 {{ preview_role }} 視点 preview 中</span>{% endif %}</h1>
         {# 殿御命 2026-06-04: nibu task.thread_id を優先・無ければ shot/task key で notice 表示 #}
         {% if task_id %}
         <a href="/messages?thread={{ task_thread_id if task_thread_id else ('task' ~ task_id) }}" title="この task の thread (assignee+lead/director/pm 自動含)" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
-          <span class="text-lg">💬</span><span class="text-xs font-medium" translate="no">{{ task_name or 'task' }} thread</span>
+          {# 殿御命 2026-06-05: shot_code + task_name 完全形 (例「c05 Compositing task thread」) #}
+          <span class="text-lg">💬</span><span class="text-xs font-medium" translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }} {{ task_name or task_type or 'task' }} task thread</span>
         </a>
         {% else %}
         <a href="/messages?thread=shot{{ '%03d' % shot_id }}" title="この SHOT の thread" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
@@ -70,7 +82,12 @@
           <div class="bg-slate-900 rounded-2xl overflow-hidden">
             <div id="main-player" class="flex items-center justify-center min-h-[60vh] p-4">
               {% if asset_list %}
-              {% set _a0 = asset_list[0] %}
+              {# 殿御命 2026-06-05: URL ?asset_id=N で指定された asset を優先表示 (asset_list[0] fallback) #}
+              {% set _ns_pick = namespace(a=None) %}
+              {% if selected_asset_id %}
+                {% for _a in asset_list %}{% if (_a.id if _a.id is defined else _a['id']) == selected_asset_id %}{% set _ns_pick.a = _a %}{% endif %}{% endfor %}
+              {% endif %}
+              {% set _a0 = _ns_pick.a or asset_list[0] %}
               {% set _bn0 = (_a0.file_path or '').split('/')[-1] %}
               {% set _ext0 = _bn0.lower().split('.')[-1] if '.' in _bn0 else '' %}
               {% set _url0 = 'http://192.168.44.253:8001/static/assets/' ~ _bn0 %}
@@ -88,9 +105,10 @@
               {% endif %}
             </div>
             <div class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-mono flex items-center justify-between">
-              <span id="player-meta">{% if asset_list %}{{ asset_list[0].version or '?' }} — {{ (asset_list[0].file_path or '').split('/')[-1] }}{% else %}提出物なし{% endif %}</span>
+              {# 殿御命 2026-06-05: _a0 (asset_id 指定優先) を反映 #}
+              <span id="player-meta">{% if asset_list %}{{ _a0.version or '?' }} — {{ (_a0.file_path or '').split('/')[-1] }}{% else %}提出物なし{% endif %}</span>
               {% if asset_list %}
-              <a id="player-download" href="http://192.168.44.253:8001/static/assets/{{ (asset_list[0].file_path or '').split('/')[-1] }}" download
+              <a id="player-download" href="http://192.168.44.253:8001/static/assets/{{ (_a0.file_path or '').split('/')[-1] }}" download
                  class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg">⬇️ ダウンロード</a>
               {% endif %}
             </div>
@@ -398,51 +416,117 @@
           {# 殿御命 2026-06-03: 「v04 と並べて比較」ボタン削除 (旧 mock・上部「📊 比較モードに切替」が現役) #}
         </div>
 
-        <!-- QC アクションボタン (Director ロール限定・status='reviewing' な task または shot.status='in_review' で判定可) -->
-        {% if role == 'director' or role == 'pm' %}
-        {% set _task_status = '' %}
+        <!-- QC アクションボタン (Director/PM/Admin = 判定権限ロール・status='reviewing'/'review' な task で判定可) -->
+        {# 殿御命 2026-06-05: admin も Director と同等 判定対象 (上申不要・直接 Approve/Retake) #}
+        {% if role in ('director', 'pm', 'admin') %}
+        {# 殿御命 2026-06-05: Jinja2 for-scope 問題回避 — namespace で task_status を確実取得 #}
+        {% set _ns_ts = namespace(s='') %}
         {% if task_id and tasks %}
-          {% for t in tasks %}{% if t.task_id == task_id %}{% set _task_status = t.status %}{% endif %}{% endfor %}
+          {% for t in tasks %}{% if t.task_id == task_id %}{% set _ns_ts.s = t.status %}{% endif %}{% endfor %}
         {% endif %}
-        {# task_id 指定なし → shot.status を見る or 任意 reviewing task の有無で判定 #}
+        {% set _task_status = _ns_ts.s %}
+        {# 殿御命 2026-06-05: Calendar enum 'review' も判定対象に追加 (旧 'reviewing' 後方互換) #}
         {% set _shot_in_review = false %}
         {% if shot and shot.status %}
-          {% if shot.status|string|lower in ['in_review', 'reviewing'] %}
+          {% if shot.status|string|lower in ['in_review', 'reviewing', 'review'] %}
             {% set _shot_in_review = true %}
           {% endif %}
         {% endif %}
         {% set _ns_judge = namespace(any_review=false) %}
         {% if not task_id and tasks %}
-          {% for t in tasks %}{% if t.status == 'reviewing' %}{% set _ns_judge.any_review = true %}{% endif %}{% endfor %}
+          {% for t in tasks %}{% if t.status in ('reviewing', 'review') %}{% set _ns_judge.any_review = true %}{% endif %}{% endfor %}
         {% endif %}
-        {% set _can_judge = (_task_status == 'reviewing') or (not task_id and (_shot_in_review or _ns_judge.any_review)) %}
+        {% set _can_judge = (_task_status in ('reviewing', 'review')) or (not task_id and (_shot_in_review or _ns_judge.any_review)) %}
         <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5 flex flex-col gap-3">
           <h2 class="font-bold text-slate-800 mb-1"><span translate="no">QC</span> アクション <span class="text-xs text-slate-500 font-normal">(<span translate="no">{{ role | capitalize }}</span> 専用)</span></h2>
           {% if _can_judge %}
           {# Reviewing 状態のみ Approve/Retake 判定可 #}
-          <button onclick="alert('QC 承認しました: Comp_v05 → Approved')"
-            class="w-full bg-emerald-500 text-white rounded-2xl px-4 py-3 font-medium hover:bg-emerald-600 transition-colors">
-            ✅ <span translate="no">Approve</span>
+          {# 殿御命 2026-06-05 (C 案): Approve 実 API 化 #}
+          <textarea id="approve-comment" placeholder="(任意) Approve コメント — SHOT thread に通知" rows="2"
+            class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:border-emerald-300"></textarea>
+          <button onclick="doApprove({{ shot_id }}, {{ task_id|default(none)|tojson }})"
+            id="approve-btn"
+            class="w-full bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-2xl px-4 py-3 font-medium transition-colors">
+            ✅ <span translate="no">Approve</span> + SHOT thread 通知
           </button>
-          <a href="/director_retake_input?shot_id={{ shot_id }}{% if task_id %}&task_id={{ task_id }}{% endif %}"
+          <a href="/director_retake_input?shot_id={{ shot_id }}{% if task_id %}&task_id={{ task_id }}{% endif %}{% if preview_role == 'director' %}&as_role=director{% endif %}"
             class="block w-full text-center bg-rose-500 text-white rounded-2xl px-4 py-3 font-medium hover:bg-rose-600 transition-colors">
-            🔁 <span translate="no">Retake</span> を発行する
+            🔁 <span translate="no">Retake</span> を発行する (リファレンス添付可)
           </a>
+          <script>
+          async function doApprove(shotId, taskId) {
+            const btn = document.getElementById('approve-btn');
+            const cmt = (document.getElementById('approve-comment') || {}).value || '';
+            btn.disabled = true;
+            btn.textContent = '⏳ 送信中...';
+            try {
+              const body = { shot_id: shotId, task_id: taskId, comment: cmt };
+              const resp = await fetch('/api/bff/qc/approve', {
+                method: 'POST', credentials: 'include',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(body)
+              });
+              const data = await resp.json();
+              if (resp.ok) {
+                btn.textContent = '✅ Approved (' + (data.thread_notified ? 'thread 通知済' : '通知 skip') + ')';
+                btn.classList.remove('bg-emerald-500');
+                btn.classList.add('bg-emerald-700');
+                setTimeout(() => window.location.reload(), 1500);
+              } else {
+                btn.disabled = false;
+                btn.textContent = '❌ 失敗 HTTP ' + resp.status;
+                alert('Approve 失敗: ' + (data.detail || JSON.stringify(data)));
+              }
+            } catch (e) {
+              btn.disabled = false;
+              btn.textContent = '❌ 例外';
+              alert('例外: ' + e.message);
+            }
+          }
+          </script>
+          {% else %}
+          {# 殿御命 2026-06-05: 「-」表示 改善 — task 0 件 / 未指定 / status 別 分岐 #}
+          {% if not tasks %}
+          <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
+            ⚠️ <strong>この SHOT には Task が 0 件</strong> です (Calendar 側で Task 設定が必要)<br>
+            → SHOT.status = <span class="font-bold" translate="no">{{ shot.status if shot else '-' }}</span><br>
+            → Calendar UI で Task を追加 (Composite / Lighting / MattePaint 等) して Compositor 担当 + status=reviewing にしてください
+          </p>
+          {% elif not task_id %}
+          <div class="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2 leading-relaxed">
+            <p class="mb-2">⚠️ <strong>Task が指定されていません</strong> — どの工程を QC するか選択してください:</p>
+            <div class="space-y-1">
+              {% for t in tasks %}
+              <a href="?task_id={{ t.task_id }}{% if preview_role %}&as_role={{ preview_role }}{% endif %}{% if asset_id %}&asset_id={{ asset_id }}{% endif %}"
+                class="block px-2 py-1 rounded bg-white border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition">
+                <span class="font-bold" translate="no">{{ t.type or t.task_type or ('task ' ~ t.task_id) }}</span>
+                <span class="text-[10px] ml-2 px-1.5 rounded
+                  {% if t.status == 'reviewing' %}bg-amber-100 text-amber-700
+                  {% elif t.status == 'retake' %}bg-rose-100 text-rose-700
+                  {% elif t.status == 'approved' or t.status == 'completed' %}bg-emerald-100 text-emerald-700
+                  {% elif t.status == 'in_progress' %}bg-blue-100 text-blue-700
+                  {% else %}bg-slate-100 text-slate-600{% endif %}" translate="no">{{ t.status or '-' }}</span>
+              </a>
+              {% endfor %}
+            </div>
+          </div>
           {% else %}
           <p class="text-xs text-slate-500 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
-            ⚠️ 現 task status: <span class="font-bold" translate="no">{{ _task_status or '-' }}</span>
+            ⚠️ 現 task status: <span class="font-bold" translate="no">{{ _task_status or '(未取得)' }}</span>
             {% if _task_status == 'retake' %}<br>→ Compositor の Retake 修正待ち中・修正完了後(status=reviewing)に Approve/Retake 判定可能{% endif %}
             {% if _task_status == 'open' %}<br>→ 未着手・Compositor が作業着手・提出待ち{% endif %}
             {% if _task_status == 'in_progress' %}<br>→ Compositor 作業中・提出(status=reviewing)後に判定可能{% endif %}
-            {% if _task_status == 'approved' %}<br>→ 既に承認済{% endif %}
+            {% if _task_status in ('approved', 'completed') %}<br>→ 既に承認済 ✓{% endif %}
           </p>
+          {% endif %}
           {% endif %}
           <button class="w-full bg-white/60 border border-white/60 rounded-2xl px-4 py-3 font-medium text-slate-700 hover:bg-white/80 transition-colors">
             ⬇️ ダウンロード
           </button>
         </div>
-        {% elif role in ('admin', 'lead', 'lighting_lead', 'kato') %}
-        <!-- Lead 用 アクション: QC 上申(任意) — Lead が後輩 review した結果を Director に上げる -->
+        {% elif role in ('lead', 'lighting_lead', 'kato') %}
+        <!-- Lead 用 アクション: QC 上申 — Lead が部内 review 後 Director に上申 (Review 依頼経路) -->
+        {# 殿御命 2026-06-05: admin は上申不要 (Director 同等) → role 'admin' 除外 #}
         <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5 flex flex-col gap-3">
           <h2 class="font-bold text-slate-800 mb-1"><span translate="no">QC</span> アクション <span class="text-xs text-slate-500 font-normal">(<span translate="no">Lead</span> 用)</span></h2>
           <p class="text-xs text-slate-500"><strong>📤 QC 上申</strong>: 後輩 review 結果を Director に上申(コメント付)</p>
@@ -537,21 +621,28 @@
               <h3 class="text-lg font-black text-slate-800">📤 <span translate="no">Director</span> <span translate="no">QC</span> 上申</h3>
               <button onclick="closeQCSubmitModal()" class="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
             </div>
-            <p class="text-xs text-slate-500 mb-4">部内レビュー結果と <span translate="no">QC</span> 用コメントを記入して上申してください。</p>
+            <p class="text-xs text-slate-500 mb-3">部内レビュー済の前提で Director に上申します。<span translate="no">QC</span> 用 補足コメントを記入してください。</p>
+            <p id="qc-submit-dir-hint" class="hidden text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">⚠️ Director 未設定の project — mention で代替担当を選択してください</p>
             <form onsubmit="submitToQCWithComment(event)" class="space-y-3">
               <div>
-                <label class="text-xs font-bold text-slate-600 mb-1 block">部内レビュー結果</label>
-                <select name="result" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
-                  <option value="approved_for_qc">✅ 部内 OK・Director に上申推奨</option>
-                  <option value="conditional">⚠️ 条件付き OK(下記コメント参照)</option>
-                  <option value="needs_more_work">❌ 部内不可・後輩に差戻</option>
-                </select>
-              </div>
-              <div>
-                <label class="text-xs font-bold text-slate-600 mb-1 block"><span translate="no">QC</span> コメント <span class="text-rose-500">*必須</span></label>
-                <textarea name="comment" rows="4" required placeholder="例: 色味は OK・但しリムライト弱め。次バージョンで強調検討。Director の判定をお願いします。"
+                <label class="text-xs font-bold text-slate-600 mb-1 block"><span translate="no">QC</span> 補足コメント <span class="text-slate-400">(任意)</span></label>
+                <textarea name="comment" rows="3" placeholder="例: 色味は OK・但しリムライト弱め。次バージョンで強調検討。"
                   class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm"></textarea>
               </div>
+              <div>
+                <label class="text-xs font-bold text-slate-600 mb-1 block">送信先 mention (Director 不在時 必須)</label>
+                <select name="mentions" id="qc-submit-mentions" multiple size="3" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm">
+                  {% if project_members %}
+                    {% for m in project_members %}
+                      <option value="{{ m.user_id }}">{{ m.name }}{% if m.role %} ({{ m.role }}){% endif %}</option>
+                    {% endfor %}
+                  {% else %}
+                    <option disabled>(project 担当者 0 件)</option>
+                  {% endif %}
+                </select>
+                <p class="text-[10px] text-slate-400 mt-1">Ctrl/Cmd+クリックで複数選択</p>
+              </div>
+              <div id="qc-submit-status" class="text-xs"></div>
               <div class="flex justify-end gap-2 pt-2">
                 <button type="button" onclick="closeQCSubmitModal()" class="px-4 py-2 text-sm text-slate-600 hover:text-slate-800">キャンセル</button>
                 <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-xl px-5 py-2">📤 上申実行</button>
@@ -561,40 +652,80 @@
         </div>
 
         <script>
-        function openQCSubmitModal() { document.getElementById('qcSubmitModal').classList.remove('hidden'); }
+        async function openQCSubmitModal() {
+          document.getElementById('qcSubmitModal').classList.remove('hidden');
+          document.getElementById('qc-submit-status').textContent = '';
+          // 殿御命 2026-06-05: Director 不在 check
+          const pid = {{ (project_id or 0)|tojson }};
+          const hint = document.getElementById('qc-submit-dir-hint');
+          window._qcSubmitDirectorAvailable = null;
+          if (pid && hint) {
+            try {
+              const r = await fetch('/api/bff/projects/' + pid + '/roles', { credentials: 'include' });
+              if (r.ok) {
+                const roles = await r.json();
+                const has = roles && roles.director != null;
+                window._qcSubmitDirectorAvailable = has;
+                hint.classList.toggle('hidden', has);
+              }
+            } catch(e) {}
+          }
+        }
         function closeQCSubmitModal() { document.getElementById('qcSubmitModal').classList.add('hidden'); }
         async function submitToQCWithComment(ev) {
           ev.preventDefault();
           const fd = new FormData(ev.target);
           const btn = document.getElementById('submit-to-qc-btn');
-          const result = fd.get('result');
+          const statusEl = document.getElementById('qc-submit-status');
           const comment = (fd.get('comment') || '').trim();
-          if (!comment) { alert('QC コメントは必須です'); return; }
-          const body = {
-            type: 'qc_request',
-            shot_id: {{ shot_id }},
-            {% if task_id %}task_id: {{ task_id }},{% endif %}
-            recipient: 'director',
-            review_result: result,
-            body: `📤 Lead → Director QC 上申\n結果: ${result}\nコメント: ${comment}`,
-            qc_comment: comment,
-            submitted_at: new Date().toISOString(),
-          };
+          const mEl = document.getElementById('qc-submit-mentions');
+          const mentions = mEl ? Array.from(mEl.selectedOptions).map(o => o.value).filter(v => v) : [];
+          // 殿御命 2026-06-05: 部内レビュー結果 select 廃止 (上申 = 部内 OK 前提)
+          if (window._qcSubmitDirectorAvailable === false && mentions.length === 0) {
+            statusEl.textContent = '⚠️ Director 未設定 — mention で 1 名以上選択してください';
+            statusEl.className = 'text-xs text-rose-600';
+            return;
+          }
+          // 殿御命 2026-06-05: /api/bff/qc/notify_existing 経由で統一 (asset_id 必須)
+          const assetId = {{ (selected_asset_id or (asset_list[0].id if asset_list else 0))|tojson }};
+          if (!assetId) {
+            statusEl.textContent = '⚠️ asset が選択されていません';
+            statusEl.className = 'text-xs text-rose-600';
+            return;
+          }
+          btn.disabled = true; btn.textContent = '⏳ 送信中...';
           try {
-            const resp = await fetch('/api/bff/messages', {
+            const body = {
+              asset_id: assetId,
+              shot_id: {{ shot_id }},
+              {% if task_id %}task_id: {{ task_id }},{% endif %}
+              submission_type: 'qc',
+              mentions: mentions.join(','),
+              comment: comment || '部内レビュー済 — Director 御確認 御願い致す',
+            };
+            const resp = await fetch('/api/bff/qc/notify_existing', {
               method: 'POST', credentials: 'include',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(body),
             });
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
             const data = await resp.json();
-            alert(`✅ Director QC へ上申しました (msg_id=${data.id})\n結果: ${result}\nコメント: ${comment.substring(0, 50)}...\n通知が Director Yamada 受信箱へ`);
-            closeQCSubmitModal();
-            btn.disabled = true;
-            btn.textContent = '✅ 上申済 (コメント付)';
-            btn.className = 'w-full bg-slate-300 text-slate-500 rounded-2xl px-4 py-3 font-medium cursor-not-allowed';
+            if (resp.ok) {
+              statusEl.textContent = `✅ 上申完了 — thread=${data.thread_id} / push=${(data.push_result||{}).sent||0} / sse=${(data.sse_result||{}).delivered||0}`;
+              statusEl.className = 'text-xs text-emerald-600';
+              setTimeout(() => {
+                closeQCSubmitModal();
+                btn.disabled = true; btn.textContent = '✅ 上申済';
+                btn.className = 'w-full bg-slate-300 text-slate-500 rounded-2xl px-4 py-3 font-medium cursor-not-allowed';
+              }, 2000);
+            } else {
+              statusEl.textContent = '❌ HTTP ' + resp.status + ': ' + (data.detail || JSON.stringify(data));
+              statusEl.className = 'text-xs text-rose-600';
+              btn.disabled = false; btn.textContent = '📤 上申実行';
+            }
           } catch (e) {
-            alert('❌ 上申失敗: ' + e.message);
+            statusEl.textContent = '❌ 例外: ' + e.message;
+            statusEl.className = 'text-xs text-rose-600';
+            btn.disabled = false; btn.textContent = '📤 上申実行';
           }
         }
         </script>

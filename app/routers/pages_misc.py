@@ -99,11 +99,16 @@ def get_messages(request: Request, thread: str | None = None, actor_id: str = De
 
     # 殿御命 2026-06-04: 旧 SSR active_thread 廃止 — click 時のみ JS で右ペイン描画 (URL 不変)
     # JS 用 real threads metadata を JSON 化して template に渡す
-    # 殿御命 2026-06-04: participants 3 名以上 = SHOT 関係者 thread, 2 名 = 1対1 DM に分類
+    # 殿御命 2026-06-04/05: SHOT 関係者 thread 分類:
+    #   1) last_message が 🔍 QC 依頼 / 📌 Review 依頼 / ✅ Approved で始まる → SHOT (content 優先・participants 2 名でも)
+    #   2) participants 3 名以上 → SHOT
+    #   3) participants 2 名 + content QC 系でない → DM
     shot_group_threads = []
     dm_oneonone_threads = []
     for t in calendar_dm_threads:
-        if len(t.get("participants") or []) > 2:
+        last_msg = (t.get("last_message") or "").lstrip()
+        is_qc_content = last_msg.startswith("🔍 QC 依頼") or last_msg.startswith("📌 Review 依頼") or last_msg.startswith("✅ Approved") or last_msg.startswith("🔁 Retake")
+        if is_qc_content or len(t.get("participants") or []) > 2:
             shot_group_threads.append(t)
         else:
             dm_oneonone_threads.append(t)

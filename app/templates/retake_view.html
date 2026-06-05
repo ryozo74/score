@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}リテイク確認 — Score{% endblock %}
+{% block content %}
+<style>body { background: linear-gradient(135deg, #E0F2FE 0%, #F3E8FF 50%, #FCE7F3 100%); }</style>
+<div class="flex min-h-screen text-slate-800">
+  {% include '_sidemenu.html' %}
+  <main class="flex-1 ml-24 p-8 overflow-y-auto">
+
+    <!-- パンくず -->
+    <nav class="flex items-center gap-2 text-sm text-slate-500 mb-2">
+      <a href="/projects" class="hover:text-purple-600">プロジェクト</a>
+      <span class="mx-1">›</span>
+      <span translate="no">{{ proj_name or '-' }}</span>
+      <span class="mx-1">›</span>
+      <span translate="no">{{ seq_code or '-' }}</span>
+      <span class="mx-1">›</span>
+      <a href="/shot/{{ shot_id }}" class="hover:text-purple-600" translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }}</a>
+      <span class="mx-1">›</span>
+      <span class="text-purple-600 font-bold">🔁 リテイク確認</span>
+    </nav>
+
+    <!-- タイトル + thread link -->
+    <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+      {% set _hier = [proj_name, seq_code, shot_code, (task_name or task_type or 'task')] | select | list %}
+      <h1 class="text-2xl font-black text-purple-800">🔁 <span translate="no">Retake</span> 確認 — <span translate="no">{{ _hier|join(' / ') }}</span></h1>
+      {% if task_thread_id %}
+      <a href="/messages?thread={{ task_thread_id }}" class="bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-2 text-sm text-slate-600 hover:text-indigo-600 transition" title="click で 右からスライド表示・別 tab で全画面なら全画面で開く link">
+        💬 <span translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }} {{ task_name or 'task' }} task thread</span> を見る
+      </a>
+      {% else %}
+      <span class="bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-400" title="SHOT thread が見つからず候">💬 task thread (不明)</span>
+      {% endif %}
+    </div>
+
+    {% if latest_meta %}
+    <div class="max-w-5xl space-y-4">
+
+      {# 殿御命 2026-06-05: リテイク対象 ビューア + マーカー TC ジャンプ #}
+      {% if target_asset and target_url %}
+      <div class="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-5">
+        <p class="text-xs font-black text-purple-700 mb-3">🎯 リテイク対象 — <span translate="no">{{ target_asset.version or '?' }}</span></p>
+        {% set _ext = (target_url|lower).split('.')[-1] %}
+        <div class="relative bg-slate-900 rounded-2xl overflow-hidden aspect-video max-w-3xl mx-auto">
+          {% if _ext in ('mp4','mov','webm','m4v') %}
+          <video id="rv-video" src="{{ target_url }}" controls preload="auto" playsinline class="absolute inset-0 w-full h-full object-contain bg-black"></video>
+          {% elif _ext in ('png','jpg','jpeg','webp','gif') %}
+          <img src="{{ target_url }}" class="absolute inset-0 w-full h-full object-contain" alt="{{ target_asset.version }}">
+          {% endif %}
+          <!-- TC overlay -->
+          <div class="absolute top-2 left-2 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-lg pointer-events-none">
+            <p id="rv-tc" class="text-white text-sm font-black tracking-wider">00:00.00</p>
+          </div>
+        </div>
+        {% if latest_meta.markers and latest_meta.markers|length > 0 %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          <p class="text-xs font-black text-slate-500 w-full mb-1">⏱️ マーカー click で video シーク:</p>
+          {% for tc in latest_meta.markers %}
+          <button type="button" onclick="rvSeekTC('{{ tc }}')" class="text-xs bg-amber-100 hover:bg-amber-200 text-amber-700 font-bold rounded-full px-3 py-1 transition" translate="no">⏱️ {{ tc }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- メタ情報 -->
+      <div class="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-5">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <p class="text-[10px] font-black text-slate-500 mb-1">優先度</p>
+            <p class="font-bold {% if latest_meta.priority == 'high' %}text-rose-600{% elif latest_meta.priority == 'mid' %}text-amber-600{% else %}text-emerald-600{% endif %}">
+              {% if latest_meta.priority == 'high' %}🔴 高{% elif latest_meta.priority == 'mid' %}🟡 中{% else %}🟢 低{% endif %}
+            </p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black text-slate-500 mb-1">期日</p>
+            <p class="font-bold">{{ latest_meta.due_date or '-' }}</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black text-slate-500 mb-1">発令者</p>
+            <p class="font-bold" translate="no">{{ latest_meta.submitted_by_name or ('uid ' ~ latest_meta.submitted_by) }}</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-black text-slate-500 mb-1">発令日時</p>
+            <p class="font-bold text-xs">{{ (latest_meta.submitted_at or '')[:19].replace('T',' ') }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 全体方針 -->
+      <div class="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-5">
+        <p class="text-xs font-black text-purple-700 mb-2">📝 全体方針・演出意図</p>
+        {% if latest_meta.direction %}
+        <p class="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{{ latest_meta.direction }}</p>
+        {% else %}
+        <p class="text-sm text-slate-400 italic">(全体方針 未入力)</p>
+        {% endif %}
+      </div>
+
+      <!-- マーカー + コメント -->
+      <div class="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-5">
+        <p class="text-xs font-black text-purple-700 mb-3">⏱️ マーカー + コメント ({{ latest_meta.comments|length }} 件)</p>
+        {% if latest_meta.comments %}
+        <div class="space-y-2">
+          {% for c in latest_meta.comments %}
+          <div class="bg-amber-50 border-l-4 border-amber-400 rounded-r-xl px-3 py-2 cursor-pointer hover:bg-amber-100 transition" onclick="rvSeekTC('{{ c.tc }}')" title="click で video シーク">
+            <p class="text-xs font-mono font-bold text-rose-600">⏱️ {{ c.tc }}</p>
+            <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap">{{ c.text }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-slate-400 italic">(コメント 0 件)</p>
+        {% endif %}
+        {% if latest_meta.markers and latest_meta.markers|length > 0 %}
+        <p class="text-[10px] text-slate-500 mt-3">⏱️ マーカー: {{ latest_meta.markers|join(' / ') }}</p>
+        {% endif %}
+      </div>
+
+      <!-- 参考素材 -->
+      <div class="bg-white/60 backdrop-blur-xl border border-white/80 rounded-3xl shadow-xl p-5">
+        <p class="text-xs font-black text-purple-700 mb-3">📎 参考素材 ({{ (latest_meta.ref_imgs|length) + (latest_meta.ref_videos|length) }} 件 + URL)</p>
+        {% if latest_meta.ref_imgs %}
+        <p class="text-[10px] font-black text-slate-500 mb-2">📷 静止画 ({{ latest_meta.ref_imgs|length }})</p>
+        <div class="flex flex-wrap gap-2 mb-3">
+          {% for fn in latest_meta.ref_imgs %}
+          <a href="/api/bff/retake/refs/{{ latest_meta.retake_id }}/{{ fn }}" target="_blank" class="block">
+            <img src="/api/bff/retake/refs/{{ latest_meta.retake_id }}/{{ fn }}" alt="{{ fn }}" class="w-24 h-16 object-cover rounded-lg border border-slate-200 hover:border-purple-400 transition">
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if latest_meta.ref_videos %}
+        <p class="text-[10px] font-black text-slate-500 mb-2">🎬 動画 ({{ latest_meta.ref_videos|length }})</p>
+        <div class="grid grid-cols-2 gap-2 mb-3">
+          {% for fn in latest_meta.ref_videos %}
+          <div class="bg-slate-900 rounded-lg overflow-hidden">
+            <video src="/api/bff/retake/refs/{{ latest_meta.retake_id }}/{{ fn }}" controls preload="metadata" class="w-full aspect-video"></video>
+            <p class="text-[10px] text-white/60 px-2 py-1 truncate" translate="no">{{ fn }}</p>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if latest_meta.reference_url %}
+        <p class="text-[10px] font-black text-slate-500 mb-1">🔗 URL</p>
+        <a href="{{ latest_meta.reference_url }}" target="_blank" class="text-sm text-indigo-600 hover:text-indigo-800 underline break-all">{{ latest_meta.reference_url }}</a>
+        {% endif %}
+        {% if not latest_meta.ref_imgs and not latest_meta.ref_videos and not latest_meta.reference_url %}
+        <p class="text-sm text-slate-400 italic">(添付 0 件)</p>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="max-w-2xl bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center">
+      <p class="text-3xl mb-2">📭</p>
+      <p class="text-sm font-bold text-amber-700">この task に Retake 履歴がありません</p>
+      <p class="text-xs text-amber-600 mt-2">Director が <a href="/director_retake_input?shot_id={{ shot_id }}&task_id={{ task_id }}&as_role=director" class="underline">Retake を発令</a> すると ここに表示されます</p>
+    </div>
+    {% endif %}
+  </main>
+</div>
+
+<script>
+// 殿御命 2026-06-05: マーカー / コメント TC click で video シーク
+function rvParseTC(tc) {
+  // "00:01:23" or "00:01:23.45" or "01:23" 等 → 秒
+  const parts = String(tc).split(':').map(s => parseFloat(s));
+  if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+  if (parts.length === 2) return parts[0]*60 + parts[1];
+  return parseFloat(tc) || 0;
+}
+function rvSecToTC(sec) {
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  const s = (sec%60).toFixed(2).padStart(5,'0');
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${s}`;
+}
+window.rvSeekTC = function(tc) {
+  const v = document.getElementById('rv-video');
+  if (!v) return;
+  const sec = rvParseTC(tc);
+  if (v.readyState >= 1) {
+    v.currentTime = sec;
+    v.play().catch(() => {});
+  } else {
+    v.addEventListener('loadedmetadata', () => { v.currentTime = sec; }, { once: true });
+  }
+};
+(function(){
+  const v = document.getElementById('rv-video');
+  if (!v) return;
+  v.addEventListener('timeupdate', () => {
+    const tcEl = document.getElementById('rv-tc');
+    if (tcEl) tcEl.textContent = rvSecToTC(v.currentTime);
+  });
+})();
+</script>
+{% endblock %}

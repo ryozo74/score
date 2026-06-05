@@ -9,7 +9,9 @@ _templates = Jinja2Templates(directory="app/templates")
 
 
 # Priority order: open tasks needing attention first
-_TASK_PRIORITY = {"retake": 0, "reviewing": 1, "in_progress": 2, "open": 3, "approved": 9}
+# 殿御命 2026-06-05: review/in-progress/delayed/todo enum 追加 + 完了 enum 一括除外
+_TASK_PRIORITY = {"retake": 0, "reviewing": 1, "review": 1, "in_progress": 2, "in-progress": 2, "todo": 2, "delayed": 2, "open": 3, "approved": 9, "completed": 9, "complete": 9, "done": 9, "完了": 9}
+_COMPLETED_STATUSES = ("approved", "completed", "complete", "done", "完了")
 
 
 def _enrich_my_tasks(client, actor_id: str) -> list[dict]:
@@ -121,8 +123,47 @@ def get_routine(request: Request, actor_id: str = Depends(get_actor_id)):
 
     # 「本日やるべきタスク」を priority 順で組み立て
     my_tasks = _enrich_my_tasks(client, actor_id)
-    today_tasks = [t for t in my_tasks if (t.get("status") or "").lower() != "approved"]
-    today_tasks.sort(key=lambda x: _TASK_PRIORITY.get((x.get("status") or "").lower(), 5))
+    # 殿御命 2026-06-05: 完了 enum 一括除外 (approved/completed/complete/done/完了)
+    today_tasks = [t for t in my_tasks if (t.get("status") or "").lower() not in _COMPLETED_STATUSES]
+
+    # 殿御命 2026-06-05: 受信 QC/Review 依頼を「本日のタスク」先頭に統合 (dashboard と同様)
+    try:
+        if hasattr(client, "get_my_dm_threads"):
+            qc_inbox = []
+            for _thr in (client.get_my_dm_threads(actor_user_id=actor_id) or []):
+                if not isinstance(_thr, dict):
+                    continue
+                lm = (_thr.get("last_message") or "").strip()
+                if not lm:
+                    continue
+                first_line = lm.split("\n")[0]
+                if not (first_line.startswith("🔍 QC 依頼") or first_line.startswith("📌 Review 依頼")):
+                    continue
+                lines = lm.split("\n")
+                title = lines[1] if len(lines) > 1 else ""
+                parts = [p.strip() for p in title.split("/")]
+                qc_inbox.append({
+                    "task_id": None,
+                    "thread_id": _thr.get("thread_id"),
+                    "shot_id": None,
+                    "shot_code": parts[2] if len(parts) >= 3 else title,
+                    "seq_code": parts[1] if len(parts) >= 2 else "",
+                    "task_type": parts[3] if len(parts) >= 4 else ("Review" if first_line.startswith("📌") else "QC"),
+                    "status": "qc_inbox" if first_line.startswith("🔍") else "review_inbox",
+                    "priority": "",
+                    "project_id": None,
+                    "project_name": parts[0] if len(parts) >= 1 else "",
+                    "due_date": "",
+                    "is_qc_inbox": True,
+                    "kind": "qc" if first_line.startswith("🔍") else "review",
+                    "updated_at": _thr.get("updated_at"),
+                })
+            qc_inbox.sort(key=lambda x: x.get("updated_at",""), reverse=True)
+            today_tasks = qc_inbox + today_tasks  # 受信 QC を 先頭に挿入
+    except Exception:
+        pass
+
+    today_tasks.sort(key=lambda x: (0 if x.get("is_qc_inbox") else 1, _TASK_PRIORITY.get((x.get("status") or "").lower(), 5)))
 
     prev_exit_submitted = _has_prev_day_exit_submitted(client, actor_id)
 

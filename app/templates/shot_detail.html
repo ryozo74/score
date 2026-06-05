@@ -359,6 +359,13 @@
               <span class="font-mono">{{ (a.created_at or '')[:16] }}</span>
             </p>
             <p class="text-[10px] text-indigo-500 font-bold mt-1">▶ クリックで再生画面へ</p>
+            {# 殿御命 2026-06-05: 既存 asset から QC/Review 依頼 (新 upload なし) — admin/director/lead/pm/lighting_lead 限定 #}
+            {% if role in ('admin','director','lead','pm','lighting_lead','kato') %}
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openQCNotifyModal({{ a.id }}, {{ a.shot_id }}, {{ a.task_id }}, '{{ a.version or "?" }}');"
+                    class="mt-2 w-full bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-bold rounded-lg py-1.5 transition">
+              📤 既存 asset で QC 依頼
+            </button>
+            {% endif %}
           </div>
           {# 殿御命 2026-06-03: 削除ボタン (card 内側 absolute・本人 or admin) #}
           <span role="button" tabindex="0"
@@ -645,28 +652,75 @@
   </div>
 </div>
 
-<!-- 技術トラブル報告モーダル -->
-<div id="modal-trouble" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
-  <div class="bg-slate-800/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6 w-96">
-    <p class="text-lg font-black text-white mb-4">🚨 技術トラブル報告</p>
+<!-- 殿御命 2026-06-05: 既存 asset で QC/Review 依頼 modal -->
+<div id="modal-qc-notify" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+  <div class="bg-slate-800/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6 w-[28rem]">
+    <p class="text-lg font-black text-white mb-3">📤 既存 asset で <span id="qc-notify-version" class="text-rose-200">v?</span> の QC 依頼</p>
+    <p id="qc-notify-dir-hint" class="hidden text-xs text-amber-300 bg-amber-500/10 border border-amber-300/40 rounded-lg px-3 py-2 mb-3">⚠️ Director 未設定 — mention で送信先を 1 名以上選択してください</p>
     <div class="mb-3">
-      <label class="text-xs font-bold text-white/60 mb-1 block">トラブル種別</label>
-      <select class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
-        <option>シーン破損</option>
-        <option>レンダリング障害</option>
-        <option>アセット欠損</option>
-        <option>その他</option>
+      <label class="text-xs font-bold text-white/60 mb-1 block">提出種別</label>
+      <select id="qc-notify-stype" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
+        <option value="qc">🔍 QC (Director/PM 自動)</option>
+        <option value="review">📌 Review (mention 主体)</option>
       </select>
     </div>
-    <div class="mb-4">
-      <label class="text-xs font-bold text-white/60 mb-1 block">詳細説明</label>
-      <textarea class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white h-20 resize-none" placeholder="発生状況・タイムコード・症状を記入"></textarea>
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">補足コメント (任意)</label>
+      <textarea id="qc-notify-comment" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white h-16 resize-none" placeholder="特記事項があれば"></textarea>
     </div>
-    <div id="trouble-sent" class="hidden mb-3 text-sm font-bold text-emerald-600 bg-emerald-500/10 rounded-xl p-3">
-      ✅ <span translate="no">Kato</span> に報告しました
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">送信先 mention (Director 不在時 必須)</label>
+      <select id="qc-notify-mentions" multiple size="3" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
+        {% if project_members %}
+          {% for m in project_members %}
+            <option value="{{ m.user_id }}">{{ m.name }}{% if m.role %} ({{ m.role }}){% endif %}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      <p class="text-[10px] text-white/40 mt-1">Ctrl/Cmd+click で複数選択</p>
     </div>
+    <div id="qc-notify-status" class="text-xs text-emerald-300 mb-2"></div>
     <div class="flex gap-2">
-      <button onclick="submitTrouble()" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl py-2 text-sm transition-all">📤 <span translate="no">Kato</span> に報告する</button>
+      <button id="qc-notify-submit-btn" onclick="submitQCNotify()" class="flex-1 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-500 text-white font-bold rounded-2xl py-2 text-sm transition-all">📤 送信</button>
+      <button onclick="closeQCNotifyModal()" class="flex-1 bg-white/40 hover:bg-white/40 text-white font-bold rounded-2xl py-2 text-sm border border-white/60">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 技術トラブル報告モーダル 殿御命 2026-06-05: Lead 不在 → mention 必須 enforce -->
+<div id="modal-trouble" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+  <div class="bg-slate-800/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-6 w-[28rem]">
+    <p class="text-lg font-black text-white mb-3">🚨 技術トラブル報告</p>
+    <p id="trouble-lead-hint" class="hidden text-xs text-amber-300 bg-amber-500/10 border border-amber-300/40 rounded-lg px-3 py-2 mb-3">⚠️ Lead 未設定の project — 送信先を mention で選択してください</p>
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">トラブル種別</label>
+      <select id="trouble-type" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
+        <option value="シーン破損">シーン破損</option>
+        <option value="レンダリング障害">レンダリング障害</option>
+        <option value="アセット欠損">アセット欠損</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">詳細説明</label>
+      <textarea id="trouble-body" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white h-20 resize-none" placeholder="発生状況・タイムコード・症状を記入"></textarea>
+    </div>
+    <div class="mb-3">
+      <label class="text-xs font-bold text-white/60 mb-1 block">送信先 mention (Lead 不在時 必須)</label>
+      <select id="trouble-mentions" multiple size="3" class="w-full bg-white/40 border border-white/60 rounded-xl p-2 text-sm text-white">
+        {% if project_members %}
+          {% for m in project_members %}
+            <option value="{{ m.user_id }}">{{ m.name }}{% if m.role %} ({{ m.role }}){% endif %}</option>
+          {% endfor %}
+        {% else %}
+          <option disabled>(project 担当者 0 件)</option>
+        {% endif %}
+      </select>
+      <p class="text-[10px] text-white/40 mt-1">Ctrl/Cmd+click で複数選択</p>
+    </div>
+    <div id="trouble-status" class="text-xs text-emerald-300 mb-2"></div>
+    <div class="flex gap-2">
+      <button id="trouble-submit-btn" onclick="submitTrouble()" class="flex-1 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-500 text-white font-bold rounded-2xl py-2 text-sm transition-all">📤 報告する</button>
       <button onclick="closeTroubleModal()" class="flex-1 bg-white/40 hover:bg-white/40 text-white font-bold rounded-2xl py-2 text-sm border border-white/60 transition-all">閉じる</button>
     </div>
   </div>
@@ -696,18 +750,51 @@
         uploadBtn.disabled = false;
       }
     });
-    // 殿御命 2026-06-03: QC 時 mention 非表示+選択クリア・Review 時のみ表示
+    // 殿御命 2026-06-03/05: QC 時 mention 非表示+選択クリア・Review 時のみ表示
+    // 殿御命 2026-06-05 (C 案): Director 不在 project では mention 必須 enforce + 警告
     const mentionsBlock = document.getElementById('asset-mentions-block');
     const mentionsSel = document.getElementById('asset-mentions');
     const dirPreview = document.getElementById('dir-preview');
+    window._directorAvailable = null;  // null=未取得 / true/false
+    async function _checkDirectorAvailable() {
+      const pid = {{ (project_id or 0)|tojson }};
+      if (!pid) { window._directorAvailable = false; return; }
+      try {
+        const r = await fetch('/api/bff/projects/' + pid + '/roles', { credentials: 'include' });
+        if (r.ok) {
+          const roles = await r.json();
+          window._directorAvailable = (roles && (roles.director != null));
+        } else {
+          window._directorAvailable = false;
+        }
+      } catch(e) { window._directorAvailable = false; }
+      _renderDirHint();
+    }
+    function _renderDirHint() {
+      const stype = (document.querySelector('input[name="submission_type"]:checked') || {}).value || 'qc';
+      if (!dirPreview) return;
+      if (window._directorAvailable === false) {
+        // Director 不在 → 警告 + mention 強制表示
+        dirPreview.innerHTML = '<span class="text-rose-600 font-bold">⚠️ Director 未設定の project です — 送信先を mention で選択してください</span>';
+        dirPreview.style.display = '';
+        if (mentionsBlock) mentionsBlock.classList.remove('hidden');
+      } else if (stype === 'qc') {
+        dirPreview.innerHTML = '<span>📌</span><span>QC 提出: プロジェクト Director + PM を自動通知します</span>';
+        dirPreview.style.display = '';
+        if (mentionsBlock) mentionsBlock.classList.add('hidden');
+      } else {
+        dirPreview.style.display = 'none';
+        if (mentionsBlock) mentionsBlock.classList.remove('hidden');
+      }
+    }
+    _checkDirectorAvailable();
     document.querySelectorAll('input[name="submission_type"]').forEach(r => {
       r.addEventListener('change', () => {
         const stype = (document.querySelector('input[name="submission_type"]:checked') || {}).value || 'qc';
-        if (mentionsBlock) mentionsBlock.classList.toggle('hidden', stype === 'qc');
-        if (stype === 'qc' && mentionsSel) {
+        if (stype === 'qc' && mentionsSel && window._directorAvailable !== false) {
           Array.from(mentionsSel.options).forEach(o => o.selected = false);
         }
-        if (dirPreview) dirPreview.style.display = (stype === 'qc') ? '' : 'none';
+        _renderDirHint();
       });
     });
     // 殿御命 2026-06-03: drag/drop 対応
@@ -808,14 +895,18 @@
       if (shotId) fd.append('shot_id', shotId);
       // 殿御命 2026-06-03: 提出種別 (QC/Review) + mention (project members から multi-select)
       const stype = (document.querySelector('input[name="submission_type"]:checked') || {}).value || 'qc';
-      // client-side validation (cmd_473)
-      const mentionsVal = (document.getElementById('asset-mentions') || {}).value || '';
-      if (stype === 'qc' && !mentionsVal.trim()) {
-        if (!confirm('QC 提出: mention が空です。Director が未設定の場合サーバーで 400 エラーになります。続けますか?')) {
-          statusEl.innerHTML = '';
-          uploadBtn.disabled = false;
-          return;
-        }
+      // 殿御命 2026-06-05 (C 案): Director 不在 project は mention 必須 enforce
+      const mEl0 = document.getElementById('asset-mentions');
+      const selected0 = mEl0 ? Array.from(mEl0.selectedOptions).map(o => o.value).filter(v => v) : [];
+      if (window._directorAvailable === false && selected0.length === 0) {
+        alert('⚠️ Director 未設定の project です — mention で送信先を 1 名以上選択してください');
+        statusEl.innerHTML = '';
+        uploadBtn.disabled = false;
+        return;
+      }
+      // 既存 (Director 存在時) の client-side validation
+      if (stype === 'qc' && window._directorAvailable !== false && selected0.length === 0) {
+        // Director 自動補完される想定 — 確認なしで OK
       }
       fd.append('submission_type', stype);
       const mEl = document.getElementById('asset-mentions');
@@ -877,12 +968,151 @@
     }, 3000);
   }
 
-  function showTroubleModal() {
-    document.getElementById('modal-trouble').classList.remove('hidden');
-    document.getElementById('trouble-sent').classList.add('hidden');
+  // 殿御命 2026-06-05: 既存 asset で QC 依頼送信
+  window._qcNotifyContext = null;
+  async function openQCNotifyModal(assetId, shotId, taskId, version) {
+    window._qcNotifyContext = { assetId, shotId, taskId, version };
+    document.getElementById('qc-notify-version').textContent = version;
+    document.getElementById('qc-notify-status').textContent = '';
+    document.getElementById('qc-notify-comment').value = '';
+    const sel = document.getElementById('qc-notify-mentions');
+    if (sel) Array.from(sel.options).forEach(o => o.selected = false);
+    document.getElementById('modal-qc-notify').classList.remove('hidden');
+    // Director 有無 check
+    const pid = {{ (project_id or 0)|tojson }};
+    const hint = document.getElementById('qc-notify-dir-hint');
+    window._qcNotifyDirectorAvailable = null;
+    if (pid && hint) {
+      try {
+        const r = await fetch('/api/bff/projects/' + pid + '/roles', { credentials: 'include' });
+        if (r.ok) {
+          const roles = await r.json();
+          const has = roles && roles.director != null;
+          window._qcNotifyDirectorAvailable = has;
+          hint.classList.toggle('hidden', has);
+        }
+      } catch(e) {}
+    }
   }
-  function submitTrouble() {
-    document.getElementById('trouble-sent').classList.remove('hidden');
+  function closeQCNotifyModal() {
+    document.getElementById('modal-qc-notify').classList.add('hidden');
+    window._qcNotifyContext = null;
+  }
+  async function submitQCNotify() {
+    const ctx = window._qcNotifyContext;
+    if (!ctx) return;
+    const btn = document.getElementById('qc-notify-submit-btn');
+    const statusEl = document.getElementById('qc-notify-status');
+    const stype = (document.getElementById('qc-notify-stype') || {}).value || 'qc';
+    const comment = (document.getElementById('qc-notify-comment') || {}).value || '';
+    const mEl = document.getElementById('qc-notify-mentions');
+    const mentions = mEl ? Array.from(mEl.selectedOptions).map(o => o.value).filter(v => v) : [];
+    if (window._qcNotifyDirectorAvailable === false && mentions.length === 0) {
+      statusEl.textContent = '⚠️ Director 未設定 — mention で 1 名以上選択してください';
+      statusEl.className = 'text-xs text-rose-300 mb-2';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳ 送信中...';
+    try {
+      const resp = await fetch('/api/bff/qc/notify_existing', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          asset_id: ctx.assetId,
+          shot_id: ctx.shotId,
+          task_id: ctx.taskId,
+          submission_type: stype,
+          mentions: mentions.join(','),
+          comment: comment,
+        }),
+      });
+      const data = await resp.json();
+      if (resp.ok) {
+        statusEl.textContent = '✅ 送信完了 — thread=' + data.thread_id + ' / push sent=' + ((data.push_result||{}).sent||0) + ' / sse delivered=' + ((data.sse_result||{}).delivered||0);
+        statusEl.className = 'text-xs text-emerald-300 mb-2';
+        setTimeout(closeQCNotifyModal, 2000);
+      } else {
+        statusEl.textContent = '❌ HTTP ' + resp.status + ': ' + (data.detail || '');
+        statusEl.className = 'text-xs text-rose-300 mb-2';
+        btn.disabled = false; btn.textContent = '📤 送信';
+      }
+    } catch (e) {
+      statusEl.textContent = '❌ 例外: ' + e.message;
+      statusEl.className = 'text-xs text-rose-300 mb-2';
+      btn.disabled = false; btn.textContent = '📤 送信';
+    }
+  }
+
+  async function showTroubleModal() {
+    const modal = document.getElementById('modal-trouble');
+    modal.classList.remove('hidden');
+    document.getElementById('trouble-status').textContent = '';
+    // 殿御命 2026-06-05: 起動時 Lead 不在チェック
+    const pid = {{ (project_id or 0)|tojson }};
+    const hint = document.getElementById('trouble-lead-hint');
+    window._troubleLeadAvailable = null;
+    if (pid && hint) {
+      try {
+        const r = await fetch('/api/bff/projects/' + pid + '/roles', { credentials: 'include' });
+        if (r.ok) {
+          const roles = await r.json();
+          const hasLead = (roles && (roles.lead != null || roles.lighting_lead != null));
+          window._troubleLeadAvailable = hasLead;
+          hint.classList.toggle('hidden', hasLead);
+        }
+      } catch (e) {}
+    }
+  }
+  async function submitTrouble() {
+    const btn = document.getElementById('trouble-submit-btn');
+    const statusEl = document.getElementById('trouble-status');
+    const type = (document.getElementById('trouble-type') || {}).value || 'その他';
+    const body = (document.getElementById('trouble-body') || {}).value || '';
+    const mEl = document.getElementById('trouble-mentions');
+    const mentions = mEl ? Array.from(mEl.selectedOptions).map(o => o.value).filter(v => v) : [];
+    if (window._troubleLeadAvailable === false && mentions.length === 0) {
+      statusEl.textContent = '⚠️ Lead 未設定 — mention で送信先を 1 名以上選択してください';
+      statusEl.className = 'text-xs text-rose-300 mb-2';
+      return;
+    }
+    if (!body.trim()) {
+      statusEl.textContent = '⚠️ 詳細説明を入力してください';
+      statusEl.className = 'text-xs text-rose-300 mb-2';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = '⏳ 送信中...';
+    statusEl.textContent = '';
+    try {
+      const payload = {
+        shot_id: {{ shot_id|default(none)|tojson }},
+        title: type,
+        body: body,
+        mentions: mentions,
+      };
+      const resp = await fetch('/api/bff/troubles', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
+      if (resp.ok) {
+        statusEl.textContent = '✅ 報告完了';
+        statusEl.className = 'text-xs text-emerald-300 mb-2';
+        setTimeout(closeTroubleModal, 1500);
+      } else {
+        const errData = await resp.json().catch(() => ({}));
+        statusEl.textContent = '❌ 送信失敗 HTTP ' + resp.status + ': ' + (errData.detail || '');
+        statusEl.className = 'text-xs text-rose-300 mb-2';
+        btn.disabled = false;
+        btn.textContent = '📤 報告する';
+      }
+    } catch (e) {
+      statusEl.textContent = '❌ 例外: ' + e.message;
+      statusEl.className = 'text-xs text-rose-300 mb-2';
+      btn.disabled = false;
+      btn.textContent = '📤 報告する';
+    }
   }
   function closeTroubleModal() {
     document.getElementById('modal-trouble').classList.add('hidden');
