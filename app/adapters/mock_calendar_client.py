@@ -43,23 +43,23 @@ _DEFAULT_STATE = {
         },
         {
             "user_id": 20, "email": "kato@studiobokan.com",
-            "name": "加藤 健司", "role": "lighting_lead",
-            "iconUrl": None, "title": "ライティングリード",
+            "name": "加藤 健司", "role": "lead",  # 殿御命 2026-06-05: lighting_lead → lead (各分野 Lead)
+            "iconUrl": None, "title": "各分野 Lead (Lighting/Animation/FX 等)",
         },
         {
             "user_id": 30, "email": "sato@studiobokan.com",
-            "name": "佐藤 花子", "role": "user",  # Compositor
-            "iconUrl": None, "title": "コンポジター",
+            "name": "佐藤 花子", "role": "user",  # 一般業務担当 (Compositor)
+            "iconUrl": None, "title": "User (Compositor/Animator/FX 等の一般業務)",
         },
         {
             "user_id": 40, "email": "suzuki@studiobokan.com",
-            "name": "鈴木 一郎", "role": "user",  # Compositor
-            "iconUrl": None, "title": "コンポジター",
+            "name": "鈴木 一郎", "role": "user",  # 一般業務担当
+            "iconUrl": None, "title": "User (一般業務担当)",
         },
-        # 殿 (既存・後方互換のため残す・role=lead で旧 demo 動作維持)
+        # 殿 (殿御命 2026-06-05: lead → admin・内容変更なし)
         {
             "user_id": 99, "email": "ryoji@studiobokan.com",
-            "name": "Ryoji Bokan", "role": "lead",
+            "name": "Ryoji Bokan", "role": "admin",
             "iconUrl": None, "title": "殿",
         },
     ],
@@ -83,14 +83,14 @@ _DEFAULT_STATE = {
         1:  [{"project_id": 33, "role": "pm"}, {"project_id": 34, "role": "pm"}, {"project_id": 35, "role": "pm"}],
         # Director=Ramps と Bali を担当
         10: [{"project_id": 33, "role": "director"}, {"project_id": 34, "role": "director"}],
-        # Lighting Lead=Ramps の lighting 統括
-        20: [{"project_id": 33, "role": "lighting_lead"}],
-        # Sato (Compositor)=Ramps を担当
-        30: [{"project_id": 33, "role": "compositor"}],
-        # Suzuki (Compositor)=Ramps と Bali を担当
-        40: [{"project_id": 33, "role": "compositor"}, {"project_id": 34, "role": "compositor"}],
-        # 殿=Ramps と Bali を Compositor として
-        99: [{"project_id": 33, "role": "compositor"}, {"project_id": 34, "role": "compositor"}],
+        # Lead=Ramps の各分野統括 (旧 lighting_lead)
+        20: [{"project_id": 33, "role": "lead"}],
+        # Sato (User: 一般業務)=Ramps を担当 (旧 compositor)
+        30: [{"project_id": 33, "role": "user"}],
+        # Suzuki (User: 一般業務)=Ramps と Bali を担当 (旧 compositor)
+        40: [{"project_id": 33, "role": "user"}, {"project_id": 34, "role": "user"}],
+        # 殿=Ramps と Bali を User として (旧 compositor)
+        99: [{"project_id": 33, "role": "user"}, {"project_id": 34, "role": "user"}],
     },
 
     # Shots (project 33=Ramps 中心)

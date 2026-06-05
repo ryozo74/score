@@ -56,12 +56,30 @@
 
       <div class="flex-1 overflow-y-auto px-3 pb-4">
         <div id="list-shot">
-          {% if not demo_mode and (all_messages_count or 0) == 0 %}
+          {# 殿御命 2026-06-04: SHOT 関係者 thread (participants 3+ 名) を SHOT タブに表示 #}
+          {% for t in shot_group_threads %}
+          {% set _parts = t.participants if t.participants else [] %}
+          {% set _names = _parts | map(attribute='name') | reject('equalto', 'Me') | list %}
+          <button type="button" onclick="openRealThread('{{ t.thread_id }}')"
+                  data-real-thread-row="{{ t.thread_id }}"
+                  class="thread-row w-full text-left block px-3 py-3 rounded-2xl hover:bg-white/50 mb-1 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-base shrink-0">👥</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-slate-800 text-xs truncate" translate="no">{{ _names|join(', ') if _names else ('thread ' ~ t.thread_id) }}</span>
+                  <span class="text-[10px] text-slate-400">{{ (t.updated_at or '')[:10] }}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 truncate">👥 {{ _parts|length }} 名 · {{ t.last_message or '(まだメッセージなし)' }}</p>
+              </div>
+            </div>
+          </button>
+          {% endfor %}
+          {% if not demo_mode and (shot_group_threads|length == 0) and (all_messages_count or 0) == 0 %}
           <div class="text-center py-12 text-slate-400 text-xs">
             <p class="text-4xl mb-2">📭</p>
-            <p class="font-bold">メッセージなし</p>
-            <p class="mt-1">Calendar BE 経由で受信 message はまだありません</p>
-            <p class="mt-3 text-[10px] text-slate-300">(demo_mode で再起動すると mock thread が表示されます)</p>
+            <p class="font-bold">SHOT 関係者 メッセージ なし</p>
+            <p class="mt-1">SHOT review/QC 提出時に自動作成されます</p>
           </div>
           {% endif %}
           {% if demo_mode %}
@@ -127,7 +145,28 @@
         </div>
 
         <div id="list-dm" class="hidden">
-          {% if not demo_mode and (all_messages_count or 0) == 0 and (dm_threads | length) == 0 %}
+          {# 殿御命 2026-06-04: 1対1 DM thread (participants 2 名) のみ DM タブに表示 #}
+          {% for t in dm_oneonone_threads %}
+          {% set _parts = t.participants if t.participants else [] %}
+          {% set _names = _parts | map(attribute='name') | reject('equalto', 'Me') | list %}
+          <button type="button" onclick="openRealThread('{{ t.thread_id }}')"
+                  data-real-thread-row="{{ t.thread_id }}"
+                  class="thread-row w-full text-left block px-3 py-3 rounded-2xl hover:bg-white/50 mb-1 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-base shrink-0">💬</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-slate-800 text-xs truncate" translate="no">{{ _names|join(', ') if _names else ('thread ' ~ t.thread_id) }}</span>
+                  <span class="text-[10px] text-slate-400">{{ (t.updated_at or '')[:10] }}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 truncate">{{ t.last_message or '(まだメッセージなし)' }}</p>
+              </div>
+            </div>
+          </button>
+          {% endfor %}
+          {# JS 用 thread metadata (SHOT + DM 両方含む・Python 側で JSON 生成済) #}
+          <script id="real-threads-data" type="application/json">{{ real_threads_json | safe }}</script>
+          {% if not demo_mode and (all_messages_count or 0) == 0 and (dm_threads | length) == 0 and (dm_oneonone_threads | length) == 0 %}
           <div class="text-center py-12 text-slate-400 text-xs">
             <p class="text-4xl mb-2">📭</p>
             <p class="font-bold">DM なし</p>
@@ -235,12 +274,13 @@
 
     <!-- ===== Right Pane: Conversation ===== -->
     <div class="flex-1 flex flex-col h-screen bg-white/5">
+      {# 殿御命 2026-06-04: 右ペインは初期空。click 時に JS openRealThread() で描画 #}
       <div id="conv-header" class="px-6 py-4 bg-white/20 backdrop-blur-md border-b border-white/30 shrink-0">
         <div class="flex items-center gap-3">
           <div id="conv-icon" class="w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-base">🎬</div>
           <div>
-            <div id="conv-title" class="font-black text-slate-800 text-base"><span translate="no">SHOT_001</span> 関係者 thread</div>
-            <div id="conv-members" class="text-xs text-slate-400"><span translate="no">Director Yamada</span>, <span translate="no">Sato</span></div>
+            <div id="conv-title" class="font-black text-slate-800 text-base" translate="no"><span translate="no">SHOT_001</span> 関係者 thread</div>
+            <div id="conv-members" class="text-xs text-slate-400" translate="no"><span translate="no">Director Yamada</span>, <span translate="no">Sato</span></div>
           </div>
         </div>
       </div>
@@ -704,12 +744,19 @@ function switchTab(tab) {
   });
 }
 
+// 殿御命 2026-06-04: SHOT thread あれば SHOT タブ、無ければ DM thread 優先、両方無ければ SHOT
+{% if shot_group_threads and shot_group_threads|length > 0 %}
 switchTab('shot');
+{% elif dm_oneonone_threads and dm_oneonone_threads|length > 0 %}
+switchTab('dm');
+{% else %}
+switchTab('shot');
+{% endif %}
+
 {% if demo_mode %}
-// demo mode のみ default で mock thread を開く・real mode では空白表示で誤解防止
 showThread('shot001');
 {% else %}
-// real Calendar 接続時は thread 選択なし(右ペインに promp 表示)
+// real Calendar 接続時は thread 未選択 → 右ペインに prompt 表示 (リロード時の初期状態)
 const _convArea = document.getElementById('conv-messages');
 if (_convArea) _convArea.innerHTML = '<div class="text-center text-slate-400 py-16 px-6"><p class="text-5xl mb-3">💬</p><p class="text-sm font-bold">thread を選択してください</p><p class="text-xs mt-2">左の thread 一覧から選ぶか・右上「✏️ 新規DM」 で開始</p></div>';
 const _convTitle = document.getElementById('conv-title');
@@ -717,6 +764,117 @@ if (_convTitle) _convTitle.textContent = '';
 const _convMembers = document.getElementById('conv-members');
 if (_convMembers) _convMembers.textContent = '';
 {% endif %}
+
+// 殿御命 2026-06-04: real Calendar DM thread click → 右ペイン描画 (URL 不変・リロードでは空)
+function openRealThread(threadId) {
+  let dataEl = document.getElementById('real-threads-data');
+  if (!dataEl) return;
+  let payload = {};
+  try { payload = JSON.parse(dataEl.textContent || '{}'); } catch(e) { return; }
+  const t = (payload.threads || []).find(x => String(x.thread_id) === String(threadId));
+  if (!t) return;
+  const parts = t.participants || [];
+  const names = parts.map(p => p.name).filter(n => n && n !== 'Me');
+  const isMulti = parts.length > 2;
+  // header
+  const iconEl = document.getElementById('conv-icon');
+  iconEl.className = `w-10 h-10 ${isMulti ? 'bg-purple-100' : 'bg-emerald-100'} rounded-full flex items-center justify-center text-base`;
+  iconEl.textContent = isMulti ? '👥' : '💬';
+  document.getElementById('conv-title').textContent = names.length ? names.join(', ') : ('thread ' + t.thread_id);
+  const updated = t.updated_at || '';
+  document.getElementById('conv-members').textContent = (isMulti ? `👥 ${parts.length} 名 thread · ` : '') + updated.slice(0, 16).replace('T', ' ');
+  // body (last_message 1 件描画 — 全件取得 EP 実装後に切替予定)
+  const area = document.getElementById('conv-messages');
+  const time = updated.slice(11, 16);
+  const nameLine = names.length ? names.join(', ') : ('thread ' + t.thread_id);
+  // 殿御命 2026-06-04: 本文中の URL を 緑ボタンに変換 (QC ビューア リンク)
+  area.innerHTML = `
+    <div class="flex justify-start">
+      <div class="max-w-xl">
+        <div class="text-[10px] text-slate-400 mb-1">${_escapeHtml(nameLine)} · ${_escapeHtml(time)}</div>
+        <div class="bg-white border border-slate-200 p-3 bubble-left text-sm text-slate-700 whitespace-pre-wrap">${_renderDmBody(t.last_message || '(まだメッセージなし)')}</div>
+      </div>
+    </div>
+    <p class="text-[10px] text-center text-slate-300 mt-4">📌 直近 1 件のみ表示 — Calendar 側 messages 取得 EP 実装され次第 全件取得予定</p>
+  `;
+  area.scrollTop = area.scrollHeight;
+  // 既読化 + tab badge 再計算
+  try { localStorage.setItem('score_dm_read_' + t.thread_id, t.updated_at || ''); } catch(e) {}
+  // active row 強調
+  document.querySelectorAll('[data-real-thread-row]').forEach(el => el.classList.remove('bg-indigo-50', 'border-l-4', 'border-indigo-400'));
+  const rowEl = document.querySelector(`[data-real-thread-row="${t.thread_id}"]`);
+  if (rowEl) rowEl.classList.add('bg-indigo-50');
+  _recalcDmUnread();
+  // dmMode を thread mode に切替 (sendMessage 用)
+  dmMode = { threadId: t.thread_id, userName: nameLine };
+  activeThread = null;
+}
+function _escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 殿御命 2026-06-04: DM 本文中の URL を 緑 button に変換 (QC ビューア 直リンク)
+function _renderDmBody(text) {
+  const esc = _escapeHtml(text);
+  // URL を行単位で抽出してボタンへ・URL 単独行は除去 + 末尾に button 配置
+  const lines = esc.split('\n');
+  const urls = [];
+  const remaining = [];
+  for (const ln of lines) {
+    const m = ln.match(/^(https?:\/\/[^\s<]+|\/[\w/?=&%.\-]+)$/);
+    if (m) { urls.push(m[1]); }
+    else { remaining.push(ln); }
+  }
+  let html = remaining.join('\n');
+  if (urls.length) {
+    html += '\n\n' + urls.map(u =>
+      `<a href="${u}" target="_blank" rel="noopener" class="inline-block mt-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow no-underline">▶ QC ビューアで確認</a>`
+    ).join(' ');
+  }
+  return html;
+}
+
+// 殿御命 2026-06-04: SHOT + DM の未読を 個別計算 (tab 毎 + 合計)
+function _recalcDmUnread() {
+  const shotMeta = [
+    {% for t in shot_group_threads %}{ id: '{{ t.thread_id }}', updated: '{{ t.updated_at or "" }}' },{% endfor %}
+  ];
+  const dmMeta = [
+    {% for t in dm_oneonone_threads %}{ id: '{{ t.thread_id }}', updated: '{{ t.updated_at or "" }}' },{% endfor %}
+  ];
+  function _countAndDecorate(meta) {
+    let unread = 0;
+    for (const tm of meta) {
+      const lastRead = localStorage.getItem('score_dm_read_' + tm.id) || '';
+      const isUnread = lastRead < tm.updated;
+      if (isUnread) unread++;
+      const rowEl = document.querySelector(`[data-real-thread-row="${tm.id}"]`);
+      if (rowEl) {
+        rowEl.classList.toggle('bg-rose-50/50', isUnread);
+        let dot = rowEl.querySelector('.dm-unread-dot');
+        if (isUnread && !dot) {
+          const d = document.createElement('span');
+          d.className = 'dm-unread-dot inline-block w-2 h-2 bg-rose-500 rounded-full ml-1 shrink-0';
+          const titleEl = rowEl.querySelector('.font-bold');
+          if (titleEl) titleEl.appendChild(d);
+        } else if (!isUnread && dot) {
+          dot.remove();
+        }
+      }
+    }
+    return unread;
+  }
+  const shotUnread = _countAndDecorate(shotMeta);
+  const dmUnread = _countAndDecorate(dmMeta);
+  const tabShot = document.getElementById('tab-count-shot');
+  if (tabShot) tabShot.textContent = '(未読 ' + shotUnread + ')';
+  const tabDm = document.getElementById('tab-count-dm');
+  if (tabDm) tabDm.textContent = '(未読 ' + dmUnread + ')';
+  const overallBadge = document.getElementById('unread-badge');
+  if (overallBadge) overallBadge.textContent = '未読 ' + (shotUnread + dmUnread);
+  try { window.dispatchEvent(new CustomEvent('score:dm-read-updated')); } catch(e) {}
+}
+_recalcDmUnread();
 
 let dmMode = null;
 const dmAvatarMap = {
@@ -730,8 +888,30 @@ const dmAvatarMap = {
 function openNewDMModal() { document.getElementById('newDMModal').classList.remove('hidden'); }
 function closeNewDMModal() { document.getElementById('newDMModal').classList.add('hidden'); }
 
-function startDM(userId, userName) {
+// 殿御命 2026-06-04: 新規 DM thread 作成 (nibu POST /api/dm/threads 経由)
+async function startDM(userId, userName, calendarUid) {
   closeNewDMModal();
+  if (calendarUid) {
+    try {
+      const resp = await fetch('/api/bff/dm/threads', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({participant_ids: [calendarUid]})  // self は bff 側で auto include
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.thread_id) {
+          window.location.href = '/messages?thread=' + data.thread_id;
+          return;
+        }
+      } else {
+        console.warn('thread 作成失敗 HTTP=' + resp.status + ' — mock UI に fallback');
+      }
+    } catch (e) {
+      console.warn('thread 作成例外: ' + e.message + ' — mock UI に fallback');
+    }
+  }
+  // fallback: 旧 mock UI 動作維持
   if (activeThread) {
     const prevRow = document.getElementById('row-' + activeThread);
     if (prevRow) prevRow.classList.remove('bg-indigo-50', 'border-l-4', 'border-indigo-400');
@@ -824,15 +1004,51 @@ function _highlightMentions(text) {
   return text.replace(/@([A-Za-zあ-ん0-9_]+)/g, '<span class="bg-indigo-100 text-indigo-700 font-bold rounded px-1">@$1</span>');
 }
 
-function sendMessage() {
+async function sendMessage() {
   const input = document.getElementById('mainInput');
   const msg = input.value.trim();
-  // 新規 DM mode or 既存 thread どちらか active であれば送信可
   if (!msg || (!dmMode && !activeThread)) { input.value = ''; return; }
-  // @mention 抽出 (notification 用 — 暫定 alert で確認)
   const mentions = (msg.match(/@([A-Za-zあ-ん0-9_]+)/g) || []);
   const area = document.getElementById('conv-messages');
   const now = new Date().toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'});
+
+  // 殿御命 2026-06-04: real DM thread mode (dmMode.threadId 有) → Calendar /api/dm へ実送信
+  const threadId = dmMode && dmMode.threadId;
+  if (threadId) {
+    // 楽観的 UI: 即座に bubble を append (送信状態 indicator 付き)
+    const bubbleId = 'dm-bubble-' + Date.now();
+    area.innerHTML += `
+      <div class="flex justify-end" id="${bubbleId}">
+        <div class="max-w-sm">
+          <div class="text-[10px] text-slate-400 text-right mb-1">{{ user.name or 'Me' }} · ${now} <span class="dm-send-status text-indigo-400">送信中…</span></div>
+          <div class="bg-indigo-50 border border-indigo-100 p-3 bubble-right text-sm text-slate-700">${_highlightMentions(msg)}</div>
+        </div>
+      </div>`;
+    input.value = '';
+    document.getElementById('mention-dropdown').classList.add('hidden');
+    area.scrollTop = area.scrollHeight;
+    try {
+      const resp = await fetch('/api/bff/dm', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({thread_id: threadId, body: msg})
+      });
+      const bubble = document.getElementById(bubbleId);
+      const status = bubble ? bubble.querySelector('.dm-send-status') : null;
+      if (resp.ok) {
+        if (status) { status.textContent = '✓ 送信済'; status.className = 'dm-send-status text-emerald-500'; }
+      } else {
+        if (status) { status.textContent = '⚠ 送信失敗 HTTP=' + resp.status; status.className = 'dm-send-status text-rose-500'; }
+      }
+    } catch (e) {
+      const bubble = document.getElementById(bubbleId);
+      const status = bubble ? bubble.querySelector('.dm-send-status') : null;
+      if (status) { status.textContent = '⚠ 送信例外: ' + e.message; status.className = 'dm-send-status text-rose-500'; }
+    }
+    return;
+  }
+
+  // 旧 mock UI 動作 (demo / 新規 DM 未開始 / SHOT thread)
   area.innerHTML += `
     <div class="flex justify-end">
       <div class="max-w-sm">
@@ -845,7 +1061,6 @@ function sendMessage() {
   area.scrollTop = area.scrollHeight;
   if (mentions.length > 0) {
     console.log('Mentions extracted:', mentions);
-    // 将来: 各 mention user の notification を生成・POST /api/bff/messages の mentions field で渡す
   }
 }
 </script>
@@ -859,49 +1074,22 @@ function sendMessage() {
       <button onclick="closeNewDMModal()" class="text-slate-400 hover:text-slate-600 text-2xl leading-none">✕</button>
     </div>
     <div class="space-y-2 max-h-64 overflow-y-auto">
-      <p class="text-xs text-slate-400 font-bold px-2 py-1">👤 個人 (自分以外の全員)</p>
-      {% set _self_email = (user.email or '').lower() if user else '' %}
-      {% if _self_email != 'yamada@studiobokan.com' %}
-      <button onclick="startDM('yamada', 'Director Yamada')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-purple-600 text-white text-xs font-black flex items-center justify-center">山</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">Director Yamada</p><p class="text-xs text-slate-400">Director</p></div>
-      </button>
-      {% endif %}
-      {% if _self_email != 'tanaka@studiobokan.com' %}
-      <button onclick="startDM('tanaka', 'PM Tanaka')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-black flex items-center justify-center">田</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">PM Tanaka</p><p class="text-xs text-slate-400">PM</p></div>
-      </button>
-      {% endif %}
-      {% if _self_email != 'kato@studiobokan.com' %}
-      <button onclick="startDM('kato', 'Lighting Lead Kato')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-amber-500 text-white text-xs font-black flex items-center justify-center">加</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">Lighting Lead Kato</p><p class="text-xs text-slate-400">Lighting Lead</p></div>
-      </button>
-      {% endif %}
-      {% if _self_email != 'sato@studiobokan.com' %}
-      <button onclick="startDM('sato', 'Sato')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-indigo-600 text-white text-xs font-black flex items-center justify-center">佐</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">Sato</p><p class="text-xs text-slate-400">Compositor</p></div>
-      </button>
-      {% endif %}
-      {% if _self_email != 'suzuki@studiobokan.com' %}
-      <button onclick="startDM('suzuki', 'Suzuki')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-indigo-400 text-white text-xs font-black flex items-center justify-center">鈴</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">Suzuki</p><p class="text-xs text-slate-400">Compositor</p></div>
-      </button>
-      {% endif %}
-      {% if _self_email != 'ryoji@studiobokan.com' %}
-      <button onclick="startDM('ryoji', 'Ryoji Bokan')"
-              class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
-        <span class="w-8 h-8 rounded-full bg-slate-700 text-white text-xs font-black flex items-center justify-center">凌</span>
-        <div><p class="font-black text-slate-800 text-sm" translate="no">Ryoji Bokan</p><p class="text-xs text-slate-400">Lead (殿)</p></div>
-      </button>
+      {# 殿御命 2026-06-04: Calendar 実機 user 一覧から動的描画 (リアルタイム性重視・cache 無し) #}
+      <p class="text-xs text-slate-400 font-bold px-2 py-1">👤 個人 ({{ dm_candidates|length }} 名 — 自分除く)</p>
+      {% if dm_candidates %}
+        {% for u in dm_candidates %}
+        <button onclick="startDM('{{ u.slug }}', {{ u.name|tojson }}, {{ u.uid }})"
+                class="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-indigo-50 transition text-left">
+          <span class="w-8 h-8 rounded-full {{ u.color }} text-white text-xs font-black flex items-center justify-center">{{ u.initial }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="font-black text-slate-800 text-sm truncate" translate="no">{{ u.name }}</p>
+            <p class="text-xs text-slate-400 truncate" translate="no">{{ u.role or u.email }}</p>
+          </div>
+          <span class="text-[10px] text-slate-300 shrink-0">uid {{ u.uid }}</span>
+        </button>
+        {% endfor %}
+      {% else %}
+        <p class="text-xs text-slate-400 px-2 py-4 text-center">📭 ユーザ取得失敗 (Calendar 側未応答 or 権限不足)</p>
       {% endif %}
     </div>
   </div>

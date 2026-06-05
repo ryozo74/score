@@ -39,7 +39,7 @@ def test_get_me_returns_user():
     assert isinstance(user, CalendarUser)
     assert user.user_id == 5
     assert user.email == "sato@score.local"
-    assert user.role == "compositor"
+    assert user.role == "user"  # 殿御命 2026-06-05: compositor → user
     assert user.name == "Sato Ichiro"
 
 
@@ -101,7 +101,7 @@ def test_resolve_email_to_user_id_cached():
 
 def test_get_me_name_fallback_name_present():
     """name あり → そのまま"""
-    payload = {"id": 1, "email": "tanaka@score.local", "role": "compositor", "name": "田中"}
+    payload = {"id": 1, "email": "tanaka@score.local", "role": "user", "name": "田中"}  # 殿御命 2026-06-05
     with unittest.mock.patch("httpx.get", return_value=_mock_get(payload)):
         user = CalendarClient().get_me()
     assert user.name == "田中"

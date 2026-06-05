@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead 1日業務動線 — Score Tutorial</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <nav class="bg-white border-b px-6 py-3 flex items-center gap-4">
+    <a href="../index.html" class="text-indigo-600 hover:text-indigo-800 text-sm">← トップに戻る</a>
+    <span class="text-gray-400">/</span>
+    <span class="text-gray-700 font-medium">Lead 1日業務動線</span>
+  </nav>
+  <header class="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white py-8 px-6">
+    <h1 class="text-2xl font-bold">💡 Lead</h1>
+    <p class="mt-1 text-yellow-100">加藤 健司 の 1 日業務動線</p>
+  </header>
+  <main class="max-w-4xl mx-auto py-10 px-6">
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 1</span>
+        <h2 class="text-xl font-bold text-gray-800">ログイン・朝のルーティン確認</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/routine.png" alt="朝のルーティン確認" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">ログイン後、ルーティン画面でライティング部門の本日の作業優先度を確認します。担当ショットの締め切りや、Director からのリテイク指示が新着で表示されます。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>緊急リテイクは赤バッジで上部固定表示</li>
+          <li>チームメンバーの本日稼働状況がルーティン画面で確認できる</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 2</span>
+        <h2 class="text-xl font-bold text-gray-800">Lead ダッシュボード確認</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/lead_dashboard.png" alt="Lead ダッシュボード" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">Lead ダッシュボードではライティング部門全体の稼働状況を確認します。担当ショット総数・完了数・QC 待ち数・メンバー別の作業量が一覧で把握できます。リソース配分の調整判断に活用します。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>メンバー別の作業量をバーチャートで比較表示</li>
+          <li>過負荷メンバーへのアサインを他メンバーに移管する操作もここから可能</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 3</span>
+        <h2 class="text-xl font-bold text-gray-800">ショット詳細確認</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/shot_1.png" alt="ショット詳細" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">ショット詳細画面では工程・QC ステータス・担当者・コメント履歴に加え、提出された Review/QC 依頼が <strong>階層 title (project / SEQ / SHOT / task)</strong> で表示。本文中の <strong>▶ QC ビューアで確認</strong> 緑ボタンを click すると Before/After QC 画面 (qc/{shot_id}) へ即遷移。提出物アセットには版数とアップロード履歴がリンク。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>バージョン履歴から過去の作業状態を参照可能</li>
+          <li>コメントタブで Director・PM とのコミュニケーション履歴を確認</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 4</span>
+        <h2 class="text-xl font-bold text-gray-800">QC レビュー実施</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/qc_1.png" alt="QC レビュー" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">QC ビューアでは提出された各バージョンを Before / After で並列比較。中央の <strong>ドラッグ可能な仕切り線</strong> で 2 つの asset を 1 画面比較できる。画面上部に project/seq/shot/task の階層 title 表示、サイドバーで全 version 履歴とサムネール一覧 + click 切替。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>「部門 QC 通過」とするとショットが Director QC キューに移動</li>
+          <li>部門内リテイクの場合はコメントを入力してメンバーに差し戻し</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 5</span>
+        <h2 class="text-xl font-bold text-gray-800">通知センター確認</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/notification_center.png" alt="通知センター" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">通知センターでは未読/既読の管理、@ メンション通知、システムからのお知らせを確認。画面右上の <strong>📣 Push 通知を有効化</strong> ボタンで OS レベル通知を 1 click 取得、🧪 テスト送信で動作確認可。Calendar の DM thread が 🎬 SHOT 関係者 (3+名) と 💬 1対1 DM (2名) に区分表示される。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>通知タイプ (リテイク / 承認 / コメント / システム) でフィルタ可能</li>
+          <li>通知クリックで関連ショットや画面へ直接ジャンプ</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 6</span>
+        <h2 class="text-xl font-bold text-gray-800">カレンダー・チームスケジュール確認</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/calendar.png" alt="カレンダー" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">カレンダーでライティング部門のスケジュールを確認します。ショット締め切り・試写・チームミーティングの日程を把握し、翌日以降の作業割り当てを計画します。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>チームメンバーの稼働日・休暇日がカラーコードで表示</li>
+          <li>ショット締め切り日に連動した自動リマインダー設定が可能</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="stage">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="stage-num bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full text-sm">Stage 7</span>
+        <h2 class="text-xl font-bold text-gray-800">退勤報告</h2>
+      </div>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/exit_report.png" alt="[撮影予定: exit_report]" loading="lazy"
+             class="rounded-xl shadow-md w-full max-w-3xl">
+      </div>
+      <div class="description mt-4 bg-white rounded-xl p-5 shadow-sm">
+        <p class="text-gray-700 leading-relaxed">退勤前に部門の本日の QC 完了件数・リテイク件数・翌日の優先ショットを退勤報告にまとめます。チームメンバー全員の退勤報告が揃ってから Lead が最終確認して提出します。</p>
+        <ul class="mt-3 list-disc list-inside text-sm text-gray-500 space-y-1">
+          <li>メンバーの退勤報告状況が一覧で確認できる集計ビュー付き</li>
+          <li>未提出メンバーへのリマインド通知を一括送信可能</li>
+        </ul>
+      </div>
+    </section>
+
+  
+    <section class="stage">
+        <span class="stage-num bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full text-sm">Stage 8</span>
+        <h3 class="text-xl font-bold text-gray-800 mt-2 mb-3">💬 メッセージ — SHOT 関係者 thread + 1対1 DM</h3>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/messages.png" alt="💬 メッセージ — SHOT 関係者 thread + 1対1 DM" loading="lazy" class="rounded-lg border border-gray-200">
+      </div>
+        <p class="text-gray-700 leading-relaxed">Lead は各 SHOT の Look 統一を担う立場として SHOT 関係者 thread に自動含まれる。QC 依頼を画面で確認し、緑ボタンで該当 shot の QC ビューアへ即遷移して判定。</p>
+    </section>
+
+  
+    <section class="stage">
+        <span class="stage-num bg-red-100 text-red-700 font-bold px-3 py-1 rounded-full text-sm">Stage 9</span>
+        <h3 class="text-xl font-bold text-gray-800 mt-2 mb-3">⚙️ 通知設定 — Push / SSE / 画面 badge の三重立て</h3>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/lead/settings_notifications.png" alt="⚙️ 通知設定 — Push / SSE / 画面 badge の三重立て" loading="lazy" class="rounded-lg border border-gray-200">
+      </div>
+        <p class="text-gray-700 leading-relaxed">Lead は QC 依頼と SHOT thread 投稿が主。Push + SSE で重要通知を確実に受信、画面 badge で後追い確認の三重立てで取りこぼし防止。</p>
+    </section>
+
+  </main>
+  <!-- lightbox overlay -->
+  <div id="lightbox" class="lightbox-overlay" onclick="closeLightbox()">
+    <img id="lightbox-img" src="" alt="">
+  </div>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

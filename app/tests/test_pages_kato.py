@@ -30,7 +30,7 @@ def patch_jwt_secret(monkeypatch):
 
 @pytest.fixture()
 def client_fixture(monkeypatch):
-    monkeypatch.setattr("app.routers.pages_kato.get_actor_role", lambda actor_id: "lighting_lead")
+    monkeypatch.setattr("app.routers.pages_kato.get_actor_role", lambda actor_id: "lead")  # 殿御命 2026-06-05: lighting_lead → lead
     _test_app.dependency_overrides[get_actor_id] = _mock_get_actor_id
     with TestClient(_test_app) as c:
         yield c

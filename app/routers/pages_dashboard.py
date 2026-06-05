@@ -48,6 +48,24 @@ def read_dashboard(
 
     user_projects = _safe(lambda: client.get_my_projects(actor_user_id=actor_id), []) or []
     project_name_map = {p.get("id"): p.get("name", "") for p in user_projects if isinstance(p, dict) and p.get("id") is not None}
+    # 殿御命 2026-06-04: ryoji の member 外 project も name 解決可にする (全 project map fallback)
+    try:
+        if hasattr(client, "get_projects"):
+            for _p in (client.get_projects(actor_user_id=actor_id) or []):
+                if isinstance(_p, dict) and _p.get("id") is not None and _p.get("id") not in project_name_map:
+                    project_name_map[_p.get("id")] = _p.get("name", "")
+    except Exception:
+        pass
+    # 殿御命 2026-06-04: users name map 事前 cache (attendees name 解決用・iterate ごと呼出回避)
+    _user_name_cache = {}
+    try:
+        if hasattr(client, "get_users"):
+            for _u in (client.get_users(actor_user_id=actor_id) or []):
+                _uid = _u.get("id") or _u.get("user_id")
+                if _uid is not None:
+                    _user_name_cache[int(_uid)] = _u.get("name") or _u.get("full_name") or _u.get("username") or _u.get("email") or f"uid {_uid}"
+    except Exception:
+        pass
 
     # ===== my_tasks: 全 project 横断 (get_my_tasks 1 call で完結) =====
     raw_tasks = []
@@ -138,23 +156,103 @@ def read_dashboard(
                     pass
         # project_name inject
         ev["project_name"] = project_name_map.get(ev.get("project_id"), "")
+        # 殿御命 2026-06-04: attendees の {type:'user', id:N or 'user-N'} → name 解決 (事前 cache 活用)
+        _atts = ev.get("attendees") or ev.get("participants") or []
+        _resolved = []
+        for a in (_atts if isinstance(_atts, list) else []):
+            if isinstance(a, dict):
+                _raw_id = a.get("id") or a.get("user_id")
+                # 'user-31' 形式の id を数値化
+                _num_id = None
+                if isinstance(_raw_id, int):
+                    _num_id = _raw_id
+                elif isinstance(_raw_id, str):
+                    import re as _re
+                    _m = _re.search(r'(\d+)', _raw_id)
+                    if _m:
+                        _num_id = int(_m.group(1))
+                nm = a.get("name")
+                if not nm and _num_id is not None and _num_id in _user_name_cache:
+                    nm = _user_name_cache[_num_id]
+                if not nm:
+                    nm = a.get("email") or (f"uid {_num_id}" if _num_id else "?")
+                _resolved.append({"id": _num_id, "name": nm})
+            else:
+                _resolved.append({"id": None, "name": str(a)})
+        ev["attendees_resolved"] = _resolved
+        # 殿御命 2026-06-04: location が URL なら mtg リンクへ昇格 (実機 event 113 確認: location に zoom URL 格納)
+        _loc_raw = (ev.get("location") or "").strip()
+        if _loc_raw.startswith(("http://", "https://")):
+            ev["meeting_url_extracted"] = _loc_raw
+            ev["location"] = ""  # 📍 場所欄で URL 2 重表示を防止
+        # description / notes / location 残文字列 内 URL を抽出 fallback (補助)
+        if not ev.get("meeting_url") and not ev.get("zoom_url") and not ev.get("meeting_url_extracted"):
+            _d = (ev.get("description") or "") + " " + (ev.get("notes") or "") + " " + (ev.get("location") or "")
+            import re as _re2
+            _u = _re2.search(r'https?://[^\s<>"]+', _d)
+            if _u:
+                ev["meeting_url_extracted"] = _u.group(0)
         try:
             ev_date = datetime.fromisoformat(ev_date_str).date()
         except ValueError:
             continue
         if ev_date == today_jst:
+            # 殿御命 2026-06-04: actor が participants に含まれない event は「本日の予定」から除外
+            # (participants 空 event は全社向け可能性につき残す)
+            _p_uids = set()
+            for _a in (ev.get("attendees") or ev.get("participants") or []):
+                if isinstance(_a, dict):
+                    _rid = _a.get("id") or _a.get("user_id")
+                    if isinstance(_rid, int):
+                        _p_uids.add(_rid)
+                    elif isinstance(_rid, str):
+                        import re as _re3
+                        _m3 = _re3.search(r'(\d+)', _rid)
+                        if _m3:
+                            _p_uids.add(int(_m3.group(1)))
+            for _u in (ev.get("user_ids") or []):
+                try:
+                    _p_uids.add(int(_u))
+                except (ValueError, TypeError):
+                    pass
+            if _p_uids and actor_uid and actor_uid not in _p_uids:
+                continue  # actor 不参加 → skip
             today_events.append(ev)
         elif (ev.get("type") or "").lower() == "milestone" and today_jst < ev_date <= next_30d:
             ev["date_short"] = ev_date.strftime("%m/%d")
             upcoming_milestones.append(ev)
     upcoming_milestones.sort(key=lambda e: e.get("date") or "")
 
-    # next_event: today_events 空時の直近未来 event 1 件
+    # next_event: today_events 空時の直近未来 event 1 件 (殿御命 2026-06-04: actor 不参加 event 除外)
+    def _ev_participant_uids(ev):
+        s = set()
+        for a in (ev.get("attendees") or ev.get("participants") or []):
+            if isinstance(a, dict):
+                r = a.get("id") or a.get("user_id")
+                if isinstance(r, int):
+                    s.add(r)
+                elif isinstance(r, str):
+                    import re as _re4
+                    m = _re4.search(r'(\d+)', r)
+                    if m:
+                        s.add(int(m.group(1)))
+        for u in (ev.get("user_ids") or []):
+            try:
+                s.add(int(u))
+            except (ValueError, TypeError):
+                pass
+        return s
+
     next_event = None
     if not today_events:
+        def _is_actor_in(ev):
+            uids = _ev_participant_uids(ev)
+            # participants 空 event は全社向け可能性につき残す
+            return (not uids) or (actor_uid in uids)
         future = sorted(
             [ev for ev in all_events
-             if (ev.get("date") or (ev.get("start_time") or "")[:10] or "")[:10] > today_str],
+             if (ev.get("date") or (ev.get("start_time") or "")[:10] or "")[:10] > today_str
+             and _is_actor_in(ev)],
             key=lambda e: (e.get("date") or (e.get("start_time") or "")[:10] or "")[:10]
         )
         next_event = future[0] if future else None

@@ -28,9 +28,36 @@ from app.routers import (
     pages_pm_dashboard,
     pages_director_qc_viewer,
     pages_routine,
+    pages_notif_settings,
+    sse_notifications,
 )
 
 app = FastAPI(title="Score BE", version="0.1.0")
+
+
+# 殿御命 2026-06-04: SSR ページの 401 を /login に自動リダイレクト
+# (JSON API は default の JSON 401 維持)
+from fastapi import Request
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.exceptions import HTTPException as _HTTPExc
+
+
+@app.exception_handler(_HTTPExc)
+async def _auth_redirect_handler(request: Request, exc: _HTTPExc):
+    if exc.status_code == 401:
+        path = request.url.path or ""
+        accept = (request.headers.get("accept") or "").lower()
+        is_api = path.startswith("/api/")
+        is_html = "text/html" in accept
+        # ブラウザ SSR 経路 (HTML 受領可・/api/ 以外) は /login redirect
+        if not is_api and is_html:
+            return RedirectResponse(url="/login?error=session_expired", status_code=303)
+    # default JSON response (API / 401 以外)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None) or {},
+    )
 
 # static asset mount (/static/*) — sidemenu ロゴ等の画像配信用
 from fastapi.staticfiles import StaticFiles
@@ -38,6 +65,23 @@ from pathlib import Path as _Path
 _static_dir = _Path(__file__).parent / "static"
 _static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+
+# 殿御命 2026-06-04 cmd_477: Service Worker を root scope (/) で配信
+# (Push 通知用 SW は controller として全 page に作用する必要・/static/sw.js では scope=/static/ で不適)
+from fastapi.responses import FileResponse
+
+@app.get("/sw.js")
+def serve_sw_at_root():
+    sw_file = _static_dir / "sw.js"
+    return FileResponse(
+        str(sw_file),
+        media_type="application/javascript",
+        headers={
+            "Service-Worker-Allowed": "/",
+            "Cache-Control": "no-cache",
+        },
+    )
 
 # 起動時に DB table を auto-create (alembic migration を待たず)
 from app.database import Base, engine
@@ -65,6 +109,8 @@ app.include_router(pages_lead_dashboard.router)
 app.include_router(pages_pm_dashboard.router)
 app.include_router(pages_director_qc_viewer.router)
 app.include_router(pages_routine.router)
+app.include_router(pages_notif_settings.router)
+app.include_router(sse_notifications.router)
 
 
 @app.get("/api/health")

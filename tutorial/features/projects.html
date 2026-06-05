@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — 🎞️ Project</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-blue-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-blue-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">🎞️ Project</h1>
+      <p class="mt-2 text-blue-200">スタジオが受注した全プロジェクトの一覧と進捗状況を確認。各プロジェクトの shot 数・QC 通過率・リテイク発生数等を俯瞰可能。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/projects.png" alt="Project 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>全プロジェクト一覧</strong> — オンライン (進行中) / オフライン (完了) / アーカイブ済 の 3 区分。</li>
+<li class="text-gray-700 leading-relaxed"><strong>進捗バー</strong> — 各プロジェクトの全 shot に対する完了率 (Approved 数 ÷ 全 shot 数)。</li>
+<li class="text-gray-700 leading-relaxed"><strong>QC 通過率 / リテイク率</strong> — 品質管理の健全性指標。</li>
+<li class="text-gray-700 leading-relaxed"><strong>担当チーム表示</strong> — PM / Director / Lead 各役のアバター。</li>
+<li class="text-gray-700 leading-relaxed"><strong>プロジェクト click → 詳細画面</strong> — 全 shot 一覧 / 担当割当 / カレンダー 等。</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">sidemenu 🎞 Project → 全プロジェクト一覧。</li>
+<li class="text-gray-700 leading-relaxed">プロジェクトカード click → /project_detail/{id} で全 shot を確認。</li>
+<li class="text-gray-700 leading-relaxed">ステータスフィルタ (オンライン/オフライン/アーカイブ) で表示切替。</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

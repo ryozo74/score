@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — 🔔 通知センター</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-amber-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-amber-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">🔔 通知センター</h1>
+      <p class="mt-2 text-amber-200">全通知の集約画面。未読 / @ mention / お知らせ の 3 タブ。Calendar の DM thread が 🎬 SHOT (3+名) と 💬 DM (2 名) に区分表示。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/notification_center.png" alt="通知センター 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>未読 / @ mention / お知らせ タブ</strong> — タブで通知種別を絞り込み。</li>
+<li class="text-gray-700 leading-relaxed"><strong>🎬 SHOT thread / 💬 DM 区分表示</strong> — Calendar の DM thread を 自動判別。</li>
+<li class="text-gray-700 leading-relaxed"><strong>📣 Push 通知を有効化</strong> ボタン — ヘッダー右上。1 click で OS 通知 toast を有効化 (要 ブラウザ通知許可)。</li>
+<li class="text-gray-700 leading-relaxed"><strong>🧪 テスト送信</strong> ボタン — Push + SSE 両方を発火して動作確認。OS toast + 画面右下 toast 両方表示。</li>
+<li class="text-gray-700 leading-relaxed"><strong>既読化</strong> — 通知カード click で既読、sidemenu 💬 赤丸も連動して減算。</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">sidemenu 🔔 通知 → 通知センター。</li>
+<li class="text-gray-700 leading-relaxed">📣 Push 通知を有効化 → ブラウザ通知許可 dialog → 「許可」 → 有効化。</li>
+<li class="text-gray-700 leading-relaxed">🧪 テスト送信 → 結果 status line + 画面右下 toast + OS toast 確認。</li>
+<li class="text-gray-700 leading-relaxed">通知 card click → 該当 thread or 画面へ遷移。</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

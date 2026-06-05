@@ -42,15 +42,14 @@
       <h1 class="text-2xl font-bold text-slate-800">{{ shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) }} — 作業詳細{% if isolated_task %}(<span translate="no">{{ task_name }}</span>){% endif %}</h1>
       {% set _shot_code = shot.shot_code if shot and shot.shot_code else 'SHOT_' + ('%03d' % shot_id) %}
       {% if isolated_task and task_id %}
-        {# task page: task 専用 thread に遷移 #}
-        {% set _thread_key = 'task' ~ task_id %}
+        {# 殿御命 2026-06-04: nibu 実装 task.thread_id があれば優先・無ければ案内表示 #}
+        {% set _thread_key = task_thread_id if task_thread_id else ('task' ~ task_id) %}
         {% set _thread_label = _shot_code ~ ' ' ~ task_name ~ ' task thread' %}
-        {% set _thread_desc = 'この task に関連する人だけの thread (' ~ task_name ~ ' 担当 + 関連 Lead)' %}
+        {% set _thread_desc = 'この task の thread (assignee + Lead/Director/PM 自動含)' %}
       {% else %}
-        {# shot page: SHOT 関係者全員 thread #}
         {% set _thread_key = _shot_code.lower().replace('_', '') %}
         {% set _thread_label = _shot_code ~ ' 関係者 thread' %}
-        {% set _thread_desc = 'この SHOT の関係者全員が話せる thread (PM/Director/Lead/全 task assignee)' %}
+        {% set _thread_desc = 'この SHOT の関係者全員が話せる thread' %}
       {% endif %}
       <a
         href="/messages?thread={{ _thread_key }}"

@@ -39,13 +39,14 @@
       </nav>
       <div class="flex items-center justify-between">
         <h1 class="font-bold text-slate-800 text-lg">🎯 <span translate="no">QC</span> ビューア — <span translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }}</span>{% if task_name %} <span translate="no">{{ task_name }}</span>{% endif %}</h1>
+        {# 殿御命 2026-06-04: nibu task.thread_id を優先・無ければ shot/task key で notice 表示 #}
         {% if task_id %}
-        <a href="/messages?thread=task{{ task_id }}" title="この task の thread を開く (関係者全員)" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
+        <a href="/messages?thread={{ task_thread_id if task_thread_id else ('task' ~ task_id) }}" title="この task の thread (assignee+lead/director/pm 自動含)" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
           <span class="text-lg">💬</span><span class="text-xs font-medium" translate="no">{{ task_name or 'task' }} thread</span>
         </a>
         {% else %}
-        <a href="/messages?thread=shot{{ '%03d' % shot_id }}" title="この SHOT の thread を開く" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
-          <span class="text-lg">💬</span><span class="text-xs font-medium" translate="no">SHOT_{{ '%03d' % shot_id }} thread</span>
+        <a href="/messages?thread=shot{{ '%03d' % shot_id }}" title="この SHOT の thread" class="flex items-center gap-2 bg-white/60 hover:bg-white/80 border border-white/60 rounded-xl px-3 py-1.5 text-sm text-slate-600 hover:text-indigo-600 transition-colors">
+          <span class="text-lg">💬</span><span class="text-xs font-medium" translate="no">{{ shot_code or ('SHOT_' + (shot_id|string)) }} thread</span>
         </a>
         {% endif %}
       </div>
@@ -440,7 +441,7 @@
             ⬇️ ダウンロード
           </button>
         </div>
-        {% elif role in ('lead', 'lighting_lead', 'kato') %}
+        {% elif role in ('admin', 'lead', 'lighting_lead', 'kato') %}
         <!-- Lead 用 アクション: QC 上申(任意) — Lead が後輩 review した結果を Director に上げる -->
         <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-xl p-5 flex flex-col gap-3">
           <h2 class="font-bold text-slate-800 mb-1"><span translate="no">QC</span> アクション <span class="text-xs text-slate-500 font-normal">(<span translate="no">Lead</span> 用)</span></h2>

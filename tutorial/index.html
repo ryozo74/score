@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — ロール別 1 日業務動線</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-indigo-700 text-white py-8 px-6">
+    <h1 class="text-3xl font-bold">Score チュートリアル</h1>
+    <p class="mt-2 text-indigo-200">各ロールの 1 日業務動線をスクリーンショットで解説</p>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6">
+    <p class="text-gray-600 mb-8">Score は映像制作スタジオ向けプロジェクト管理システムです。ロールを選択して 1 日の業務動線を確認してください。</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- PM -->
+      <a href="roles/pm.html" class="block bg-white rounded-2xl shadow hover:shadow-lg transition p-6 border-l-4 border-blue-500">
+        <div class="text-3xl mb-3">📋</div>
+        <h2 class="text-xl font-bold text-gray-800">PM</h2>
+        <p class="text-sm text-gray-500 mt-1">田中 太郎</p>
+        <p class="text-gray-600 mt-3 text-sm">プロジェクト全体の進捗管理・納品管理・ルーティン確認</p>
+      </a>
+      <!-- Director -->
+      <a href="roles/director.html" class="block bg-white rounded-2xl shadow hover:shadow-lg transition p-6 border-l-4 border-purple-500">
+        <div class="text-3xl mb-3">🎬</div>
+        <h2 class="text-xl font-bold text-gray-800">Director</h2>
+        <p class="text-sm text-gray-500 mt-1">山田 博</p>
+        <p class="text-gray-600 mt-3 text-sm">品質管理・QC レビュー・リテイク指示・ルーティン確認</p>
+      </a>
+      <!-- Lead (各分野 技術・アート責任者) -->
+      <a href="roles/lead.html" class="block bg-white rounded-2xl shadow hover:shadow-lg transition p-6 border-l-4 border-yellow-500">
+        <div class="text-3xl mb-3">💡</div>
+        <h2 class="text-xl font-bold text-gray-800">Lead</h2>
+        <p class="text-sm text-gray-500 mt-1">加藤 健司</p>
+        <p class="text-gray-600 mt-3 text-sm">各分野 Lead (Lighting / Animation / FX 等)・技術アート責任者・ショット管理・QC 担当</p>
+      </a>
+      <!-- User (一般業務担当) -->
+      <a href="roles/user.html" class="block bg-white rounded-2xl shadow hover:shadow-lg transition p-6 border-l-4 border-green-500">
+        <div class="text-3xl mb-3">🖥️</div>
+        <h2 class="text-xl font-bold text-gray-800">User</h2>
+        <p class="text-sm text-gray-500 mt-1">佐藤 花子</p>
+        <p class="text-gray-600 mt-3 text-sm">Compositor / Animator / FX 等の一般業務担当・ショット詳細・素材 upload・退勤報告</p>
+      </a>
+      <!-- Admin -->
+      <a href="roles/admin.html" class="block bg-white rounded-2xl shadow hover:shadow-lg transition p-6 border-l-4 border-red-500">
+        <div class="text-3xl mb-3">👑</div>
+        <h2 class="text-xl font-bold text-gray-800">Admin</h2>
+        <p class="text-sm text-gray-500 mt-1">Ryoji Bokan</p>
+        <p class="text-gray-600 mt-3 text-sm">スタジオ全体管理・横断プロジェクト確認・プロフィール管理</p>
+      </a>
+    </div>
+    <div class="mt-12 p-6 bg-indigo-50 rounded-2xl">
+      <h2 class="text-lg font-bold text-indigo-800 mb-3">共通操作: ログイン〜ログアウト</h2>
+      <ol class="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+        <li>ブラウザで Score URL を開き、メールアドレス + パスワード でログイン</li>
+        <li>サイドメニューから各機能に移動</li>
+        <li>退勤時は「退勤報告」を提出してからログアウト</li>
+      </ol>
+    </div>
+
+    <!-- 殿御命 2026-06-05: 機能リファレンス (sidemenu 機能別 9 page) -->
+    <section class="mt-16">
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">📖 機能リファレンス</h2>
+      <p class="text-gray-600 text-sm mb-6">サイドメニューの各機能を 1 ページにまとめた解説。各 page で 機能概要 + 主機能 + 操作方法 を確認できる。</p>
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <a href="features/dashboard.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-indigo-500">
+          <div class="text-2xl mb-2">🏠</div>
+          <h3 class="font-bold text-gray-800 text-sm">ダッシュボード</h3>
+          <p class="text-xs text-gray-500 mt-1">本日の予定 / タスク / QC</p>
+        </a>
+        <a href="features/projects.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-blue-500">
+          <div class="text-2xl mb-2">🎞️</div>
+          <h3 class="font-bold text-gray-800 text-sm">Project</h3>
+          <p class="text-xs text-gray-500 mt-1">全プロジェクト一覧 / 進捗</p>
+        </a>
+        <a href="features/calendar.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-purple-500">
+          <div class="text-2xl mb-2">📅</div>
+          <h3 class="font-bold text-gray-800 text-sm">Calendar</h3>
+          <p class="text-xs text-gray-500 mt-1">予定追加 / 参加者選択 / mtg リンク</p>
+        </a>
+        <a href="features/messages.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-emerald-500">
+          <div class="text-2xl mb-2">💬</div>
+          <h3 class="font-bold text-gray-800 text-sm">Messages</h3>
+          <p class="text-xs text-gray-500 mt-1">SHOT thread / 1対1 DM</p>
+        </a>
+        <a href="features/notifications.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-amber-500">
+          <div class="text-2xl mb-2">🔔</div>
+          <h3 class="font-bold text-gray-800 text-sm">通知センター</h3>
+          <p class="text-xs text-gray-500 mt-1">通知一覧 / Push 有効化</p>
+        </a>
+        <a href="features/exit_report.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-rose-500">
+          <div class="text-2xl mb-2">🚪</div>
+          <h3 class="font-bold text-gray-800 text-sm">退勤</h3>
+          <p class="text-xs text-gray-500 mt-1">当日 / 前日 退勤報告</p>
+        </a>
+        <a href="features/notif_settings.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-indigo-500">
+          <div class="text-2xl mb-2">⚙️</div>
+          <h3 class="font-bold text-gray-800 text-sm">通知設定</h3>
+          <p class="text-xs text-gray-500 mt-1">Push / SSE / badge 経路設定</p>
+        </a>
+        <a href="features/lang.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-slate-500">
+          <div class="text-2xl mb-2">🌐</div>
+          <h3 class="font-bold text-gray-800 text-sm">Lang</h3>
+          <p class="text-xs text-gray-500 mt-1">言語切替 (日 / 繁 / EN)</p>
+        </a>
+        <a href="features/profile.html" class="block bg-white rounded-xl shadow-sm hover:shadow-lg transition p-4 border-l-4 border-fuchsia-500">
+          <div class="text-2xl mb-2">👤</div>
+          <h3 class="font-bold text-gray-800 text-sm">Profile</h3>
+          <p class="text-xs text-gray-500 mt-1">avatar / 連絡先 / role 表示</p>
+        </a>
+      </div>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 2026-06-03</footer>
+  <script src="js/nav.js"></script>
+</body>
+</html>

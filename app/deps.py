@@ -49,12 +49,16 @@ def get_actor_id(
 # 本式 DB 化(F-3)までの暫定として Python dict で email → score_role mapping を保持する。
 # 将来: Score 側に score_user_roles テーブル新設 + Calendar.email join で書換予定。
 SCORE_ROLE_MAP: dict[str, str] = {
-    "ryoji@studiobokan.com":  "lead",            # 殿 / Lead (部署 oversight)
-    "tanaka@studiobokan.com": "pm",              # PM
-    "yamada@studiobokan.com": "director",        # Director
-    "kato@studiobokan.com":   "lighting_lead",   # Lighting Lead
-    "sato@studiobokan.com":   "user",            # Compositor
-    "suzuki@studiobokan.com": "user",            # Compositor
+    # 殿御命 2026-06-05: role 名 大改編
+    # 旧 lead (Ryoji) → admin (内容変更なし・role 名のみ rename)
+    # 旧 lighting_lead (Kato) → lead (各分野 Lead = Lighting / Animation / FX 等の技術アート責任者)
+    # 旧 compositor → user (一般業務担当 = Compositor / Animator / FX 等)
+    "ryoji@studiobokan.com":  "admin",   # 殿 / Admin (旧 lead, スタジオ全体管理)
+    "tanaka@studiobokan.com": "pm",       # PM
+    "yamada@studiobokan.com": "director", # Director
+    "kato@studiobokan.com":   "lead",     # Lead (旧 lighting_lead, 各分野 技術アート責任者)
+    "sato@studiobokan.com":   "user",     # User (旧 compositor, 一般業務担当)
+    "suzuki@studiobokan.com": "user",     # User (旧 compositor, 一般業務担当)
 }
 
 

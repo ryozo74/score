@@ -1,0 +1,83 @@
+/* Score Tutorial — style.css */
+
+/* Lightbox overlay */
+.lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+  cursor: zoom-out;
+}
+
+.lightbox-overlay.active {
+  display: flex;
+}
+
+.lightbox-overlay img {
+  max-width: 92vw;
+  max-height: 92vh;
+  border-radius: 12px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+}
+
+/* Screenshot hover effect */
+.screenshot-wrap {
+  display: inline-block;
+  width: 100%;
+}
+
+.screenshot-wrap img {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.screenshot-wrap:hover img {
+  transform: scale(1.01);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Stage section */
+.stage {
+  scroll-margin-top: 4rem;
+}
+
+.stage-num {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Description box */
+.description {
+  border-left: 4px solid #6366f1;
+}
+
+/* Responsive image */
+@media (max-width: 768px) {
+  .lightbox-overlay img {
+    max-width: 98vw;
+    max-height: 85vh;
+  }
+}
+
+/* Keyboard hint */
+.keyboard-hint {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.keyboard-hint.show {
+  opacity: 1;
+}

@@ -83,6 +83,7 @@ def get_qc_viewer(
             "user": user,
             "asset_list": asset_list,
             "selected_asset_id": asset_id,
+            "task_thread_id": getattr(selected_task, "thread_id", None) if selected_task else None,
             # 暫定: Calendar コメント/リテイク schema 確認中 → 空リスト (cmd_475 Phase A)
             "comment_list": [],
             "retake_history": [],

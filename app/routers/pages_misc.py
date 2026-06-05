@@ -87,13 +87,81 @@ def get_messages(request: Request, thread: str | None = None, actor_id: str = De
     except Exception:
         shot_threads_participants = {}
 
-    # nibu 殿納品 /api/me/dm/threads 試行取得 (response 形式確認後に template 切替予定)
+    # 殿御命 2026-06-04: nibu 6/3 実装 /api/me/dm/threads + task 自動 thread を反映
     calendar_dm_threads = []
     try:
-        if hasattr(client, "get_dm_threads"):
+        if hasattr(client, "get_my_dm_threads"):
+            calendar_dm_threads = client.get_my_dm_threads(actor_user_id=actor_id) or []
+        elif hasattr(client, "get_dm_threads"):  # 後方互換
             calendar_dm_threads = client.get_dm_threads(actor_user_id=actor_id) or []
     except Exception:
         calendar_dm_threads = []
+
+    # 殿御命 2026-06-04: 旧 SSR active_thread 廃止 — click 時のみ JS で右ペイン描画 (URL 不変)
+    # JS 用 real threads metadata を JSON 化して template に渡す
+    # 殿御命 2026-06-04: participants 3 名以上 = SHOT 関係者 thread, 2 名 = 1対1 DM に分類
+    shot_group_threads = []
+    dm_oneonone_threads = []
+    for t in calendar_dm_threads:
+        if len(t.get("participants") or []) > 2:
+            shot_group_threads.append(t)
+        else:
+            dm_oneonone_threads.append(t)
+
+    import json as _json_mod
+    real_threads_json = _json_mod.dumps({
+        "threads": [
+            {
+                "thread_id": t.get("thread_id"),
+                "participants": t.get("participants") or [],
+                "last_message": t.get("last_message") or "",
+                "updated_at": t.get("updated_at") or "",
+            }
+            for t in calendar_dm_threads
+        ]
+    }, ensure_ascii=False)
+
+    # 殿御命 2026-06-04: 新規 DM 宛先リストを Calendar 実機 user 一覧から動的描画
+    # (リアルタイム性重視・cache 無し pass-through)
+    dm_candidates = []
+    try:
+        from app.adapters.calendar_client import _to_calendar_uid
+        me_cuid = _to_calendar_uid(actor_id)
+        me_cuid_int = int(me_cuid) if me_cuid is not None else None
+        _colors = ["bg-purple-600", "bg-emerald-600", "bg-amber-500", "bg-indigo-600", "bg-rose-500", "bg-sky-600", "bg-slate-700", "bg-fuchsia-600", "bg-teal-600", "bg-orange-500"]
+        if hasattr(client, "get_users"):
+            for u in (client.get_users(actor_user_id=actor_id) or []):
+                if not isinstance(u, dict):
+                    continue
+                uid = u.get("id") or u.get("user_id")
+                if uid is None:
+                    continue
+                try:
+                    uid_int = int(uid)
+                except (ValueError, TypeError):
+                    continue
+                if me_cuid_int is not None and uid_int == me_cuid_int:
+                    continue  # 自分除外
+                email = (u.get("email") or "").strip()
+                name = (u.get("name") or u.get("full_name") or u.get("username") or "").strip()
+                if not name:
+                    name = email.split("@")[0] if email else f"user_{uid_int}"
+                slug = email.split("@")[0] if email else f"u{uid_int}"
+                initial = name[:1] if name else "?"
+                role = (u.get("role") or "").strip()
+                dm_candidates.append({
+                    "uid": uid_int,
+                    "slug": slug,
+                    "name": name,
+                    "email": email,
+                    "role": role,
+                    "initial": initial,
+                    "color": _colors[uid_int % len(_colors)],
+                })
+        # 表示順: name 昇順 (安定 sort)
+        dm_candidates.sort(key=lambda x: x.get("name", ""))
+    except Exception:
+        dm_candidates = []
 
     return _templates.TemplateResponse(
         request=request, name="messages.html",
@@ -106,6 +174,10 @@ def get_messages(request: Request, thread: str | None = None, actor_id: str = De
             "all_messages_count": len(all_messages),
             "shot_threads_participants": shot_threads_participants,
             "thread_query": thread,  # 殿御命 2026-06-03: task/shot 別 thread 指定 (現状 demo data 未配置)
+            "dm_candidates": dm_candidates,  # 殿御命 2026-06-04: 新規 DM 宛先リスト (Calendar 実 user)
+            "real_threads_json": real_threads_json,  # 殿御命 2026-06-04: JS openRealThread() 用 metadata
+            "shot_group_threads": shot_group_threads,  # 殿御命 2026-06-04: 3+ 名 thread → SHOT タブ
+            "dm_oneonone_threads": dm_oneonone_threads,  # 殿御命 2026-06-04: 2 名 thread → DM タブ
         },
     )
 

@@ -121,6 +121,7 @@ def get_task_detail(
                     "shotID": raw.get("shotID"),
                     "seqID": raw.get("seqID"),
                     "name": raw.get("name"),
+                    "thread_id": raw.get("thread_id"),
                 })()
                 found_shot_id = raw.get("shot_id") or 0
                 found_shotID = raw.get("shotID")
@@ -139,6 +140,7 @@ def get_task_detail(
                         "type": raw.get("type", "Unknown"),
                         "status": raw.get("status", "open"),
                         "assignee_id": raw.get("assigned_to") or raw.get("assignee_id") or 0,
+                        "thread_id": raw.get("thread_id"),
                     })()
                     found_shot_id = raw.get("shot_id") or 0
                     found_shotID = raw.get("shotID")
@@ -325,6 +327,7 @@ def get_task_detail(
             "next_version": next_version,
             "asset_list": asset_list,
             "project_members": project_members,
+            "task_thread_id": getattr(found_task, "thread_id", None) if found_task else None,
             "demo_mode": os.getenv("CALENDAR_MOCK", "0") == "1",
         },
     )

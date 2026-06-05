@@ -359,6 +359,44 @@ class CalendarClient:
     def patch_task_status(self, task_id: int, status: str, actor_user_id: str | None = None) -> dict:
         return self.patch_task(task_id, {"status": status}, actor_user_id=actor_user_id)
 
+    def post_dm_thread(self, participant_ids: list[int], task_id: int | None = None, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-04: nibu 殿実装 POST /api/dm/threads — 多人数 thread 作成"""
+        body = {"participant_ids": participant_ids}
+        if task_id is not None:
+            body["task_id"] = task_id
+        resp = httpx.post(
+            f"{self.base_url}/api/dm/threads",
+            json=body,
+            headers={**self._headers(actor_user_id), "Content-Type": "application/json"},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def post_dm(self, thread_id: int, body_text: str, actor_user_id: str | None = None) -> dict:
+        """殿御命 2026-06-04: POST /api/dm — 既存 thread にメッセージ送信"""
+        resp = httpx.post(
+            f"{self.base_url}/api/dm",
+            json={"thread_id": thread_id, "body": body_text},
+            headers={**self._headers(actor_user_id), "Content-Type": "application/json"},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_my_dm_threads(self, actor_user_id: str | None = None) -> list:
+        """殿御命 2026-06-04: GET /api/me/dm/threads — 自分参加全 thread (多人数含)"""
+        resp = httpx.get(
+            f"{self.base_url}/api/me/dm/threads",
+            headers=self._headers(actor_user_id),
+            timeout=10.0,
+        )
+        if resp.status_code == 404:
+            return []
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, list) else []
+
     def delete_asset(self, asset_id: int, actor_user_id: str | None = None) -> dict:
         """殿御命 2026-06-03: DELETE /api/assets/{id} (nibu 殿 6/3 実装完了)
         本人 or admin のみ可・物理削除 + LookDistribution リンク自動 NULL 化"""

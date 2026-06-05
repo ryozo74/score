@@ -32,10 +32,50 @@
   <main class="flex-1 ml-24 p-10 overflow-y-auto">
 
     <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3">🔔 通知センター</h1>
-      <p class="text-slate-500 mt-1 text-sm font-medium">あなた宛の未読通知 — 計 <span id="total-count">{{ (counts.unread or 0) + (counts.mention or 0) + (counts.notice or 0) }}</span> 件</p>
+    <div class="mb-8 flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3">🔔 通知センター</h1>
+        <p class="text-slate-500 mt-1 text-sm font-medium">あなた宛の未読通知 — 計 <span id="total-count">{{ (counts.unread or 0) + (counts.mention or 0) + (counts.notice or 0) }}</span> 件</p>
+      </div>
+      {# 殿御命 2026-06-04 cmd_477: Web Push 有効化 + テスト button #}
+      <div class="flex flex-col items-end gap-1 shrink-0">
+        <div class="flex gap-2">
+          <button id="push-enable-btn" type="button" onclick="scorePushEnable()"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-2xl px-4 py-2 transition shadow cursor-pointer">
+            📣 Push 通知 を有効化
+          </button>
+          <button id="push-test-btn" type="button" onclick="scorePushTest()"
+                  class="bg-white/60 hover:bg-white text-slate-700 text-sm font-bold rounded-2xl px-4 py-2 transition shadow border border-white/60 cursor-pointer">
+            🧪 テスト送信
+          </button>
+        </div>
+        <p id="push-status-line" class="text-xs mt-2 font-bold text-slate-500">未登録 (📣 を押して開始)</p>
+      </div>
     </div>
+    <script src="/static/push-register.js"></script>
+    <script>
+      // 既登録 SW (root scope) あれば status line に表示 (button は disabled にせず再 click 可能)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          const st = document.getElementById('push-status-line');
+          const rootRegs = regs.filter(r => r.scope && !r.scope.includes('/static/'));
+          const legacyRegs = regs.filter(r => r.scope && r.scope.includes('/static/'));
+          if (rootRegs.length > 0 && st) {
+            st.textContent = '✓ Service Worker 登録済 (root scope) · 再 click で再購読・🧪 でテスト';
+            st.className = 'text-xs mt-2 font-bold text-emerald-600';
+            const btn = document.getElementById('push-enable-btn');
+            if (btn) {
+              btn.textContent = '🔄 Push 再登録';
+              btn.classList.remove('bg-indigo-600');
+              btn.classList.add('bg-emerald-600');
+            }
+          } else if (legacyRegs.length > 0 && st) {
+            st.textContent = '⚠ 旧 SW (/static/) 検出 — 📣 click で root scope に再登録';
+            st.className = 'text-xs mt-2 font-bold text-amber-600';
+          }
+        });
+      }
+    </script>
 
     <!-- Tab Navigation -->
     <div class="flex gap-2 mb-8">

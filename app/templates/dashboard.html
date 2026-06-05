@@ -44,12 +44,48 @@
           📅 本日の予定 <span class="text-xs bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 font-bold">{{ today_events|length }}</span>
         </h2>
         <div class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-2xl p-4">
-          <ul class="space-y-2">
+          <ul class="space-y-3">
             {% for ev in today_events %}
-            <li class="flex items-start gap-3 text-sm">
-              <span class="font-mono text-indigo-700 font-bold shrink-0 w-12">{{ ev.display_time or '終日' }}</span>
-              <span class="flex-1 text-slate-800" translate="no">{{ ev.title }}</span>
-              {% if ev.project_name %}<span class="text-[10px] text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 shrink-0" translate="no">{{ ev.project_name }}</span>{% endif %}
+            {# 殿御命 2026-06-04: zoom リンク・場所・概要 等 旧仕様復元 #}
+            {% set _zoom = ev.zoom_url or ev.meeting_url or ev.online_meeting_url or ev.video_url or ev.url or ev.conference_url or ev.meeting_url_extracted or '' %}
+            {% set _loc = ev.location or ev.venue or ev.room or '' %}
+            {% set _desc = ev.description or ev.summary or ev.notes or '' %}
+            {% set _attendees = ev.attendees_resolved or [] %}
+            {% set _proj_name = ev.project_name or (project_name_map.get(ev.project_id, '') if project_name_map else '') %}
+            <li class="bg-white/60 rounded-xl p-3 border border-white/80">
+              {# 殿御命 2026-06-04: project 名を 最上段 left に常時表示・mtg button を 最上段 right に常時表示 #}
+              <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <span class="text-[11px] text-white bg-indigo-600 rounded-md px-2 py-1 shrink-0 font-bold" translate="no">📁 {{ _proj_name or ('project_' ~ (ev.project_id|string) if ev.project_id else '—') }}</span>
+                {% if _zoom %}
+                <a href="{{ _zoom }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg px-3 py-1.5 transition shadow shrink-0">
+                  📹 mtg リンクへ
+                </a>
+                {% else %}
+                <span class="inline-flex items-center gap-1 bg-slate-200 text-slate-500 text-xs font-bold rounded-lg px-3 py-1.5 shrink-0" title="mtg リンク未設定">
+                  📹 リンク無
+                </span>
+                {% endif %}
+              </div>
+              <div class="flex items-start gap-3 text-sm">
+                <span class="font-mono text-indigo-700 font-bold shrink-0 w-12">{{ ev.display_time or '終日' }}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold text-slate-800" translate="no">{{ ev.title }}</p>
+                  {% if _loc %}<p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">📍 <span translate="no">{{ _loc }}</span></p>{% endif %}
+                  {% if _attendees %}
+                  <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1 flex-wrap">
+                    👥 {% for a in _attendees[:6] %}<span translate="no" class="bg-slate-100 rounded px-1.5 py-0.5">{{ a.name }}</span>{% endfor %}{% if _attendees|length > 6 %} <span class="text-slate-400">他 {{ _attendees|length - 6 }} 名</span>{% endif %}
+                  </p>
+                  {% endif %}
+                  {% if _desc %}
+                  <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">{{ _desc[:160] }}{% if _desc|length > 160 %}…{% endif %}</p>
+                  {% endif %}
+                  {% if _zoom %}
+                  <a href="{{ _zoom }}" target="_blank" rel="noopener"
+                     class="block mt-1 text-[10px] text-indigo-600 hover:text-indigo-800 underline truncate" title="{{ _zoom }}">🔗 {{ _zoom }}</a>
+                  {% endif %}
+                </div>
+              </div>
             </li>
             {% endfor %}
           </ul>

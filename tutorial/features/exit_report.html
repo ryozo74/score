@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — 🚪 退勤</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-rose-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-rose-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">🚪 退勤</h1>
+      <p class="mt-2 text-rose-200">当日 (current) / 前日忘れ分 (previous) 退勤報告の提出。ルーティン入力・進捗報告・問題報告も含む。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/exit_report.png" alt="退勤 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>退勤時刻</strong> — 自動で現在時刻 (修正可)。</li>
+<li class="text-gray-700 leading-relaxed"><strong>進行報告</strong> — 本日完了したタスク・進捗率の入力。</li>
+<li class="text-gray-700 leading-relaxed"><strong>問題報告 (blocker)</strong> — 進行を妨げる課題 (技術トラブル / アセット待ち / 仕様確認等)。</li>
+<li class="text-gray-700 leading-relaxed"><strong>引継ぎ (handover)</strong> — 翌日対応してほしい事項を後任に明示。</li>
+<li class="text-gray-700 leading-relaxed"><strong>次優先 (next_priority)</strong> — 翌日の最優先タスクの宣言。</li>
+<li class="text-gray-700 leading-relaxed"><strong>前日忘れモード</strong> — mode=previous&return=routine で前日分を後追い提出。サイドメニュー非表示で 提出強制。</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">sidemenu 🚪 退勤 → 退勤報告画面。</li>
+<li class="text-gray-700 leading-relaxed">各項目入力 → 送信 → routine 画面 or dashboard に遷移。</li>
+<li class="text-gray-700 leading-relaxed">前日忘れの場合 ダッシュボード経由で 自動 prompt 表示。</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

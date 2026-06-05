@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score チュートリアル — ⚙️ 通知設定</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-indigo-700 text-white py-6 px-6">
+    <div class="max-w-5xl mx-auto flex items-center gap-4">
+      <a href="../index.html" class="text-indigo-200 hover:text-white text-sm">← トップへ戻る</a>
+    </div>
+    <div class="max-w-5xl mx-auto mt-2">
+      <h1 class="text-3xl font-bold flex items-center gap-3">⚙️ 通知設定</h1>
+      <p class="mt-2 text-indigo-200">通知の配信経路 (📣 Web Push / 🟢 SSE / 🔴 画面 badge) と 通知種別 (Review / QC / DM / SHOT thread / @ mention) を個別に ON/OFF 設定。</p>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto py-10 px-6 space-y-8">
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">📸 画面</h2>
+      <div class="screenshot-wrap cursor-pointer" onclick="openLightbox(this)">
+        <img src="../images/admin/settings_notifications.png" alt="通知設定 画面" loading="lazy" class="rounded-xl shadow-md w-full max-w-3xl mx-auto block">
+      </div>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">✨ 主な機能</h2>
+      <ul class="list-disc list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed"><strong>📣 Web Push (OS 通知)</strong> — PC / モバイル の OS toast。離席中でも通知。要 ブラウザ通知許可 (1 回のみ)。</li>
+<li class="text-gray-700 leading-relaxed"><strong>🟢 在席中 banner (SSE)</strong> — Score を開いている間 画面右下に 紫アクセント白 toast。OS 通知許可不要。8 秒で消失。</li>
+<li class="text-gray-700 leading-relaxed"><strong>🔴 sidemenu 赤丸 + 通知センター</strong> — 常時 ON (設定で OFF 不可)。見落とし防止。</li>
+<li class="text-gray-700 leading-relaxed"><strong>通知種別 5 区分</strong> — 📌 Review 依頼 / 🔍 QC 依頼 / 💬 DM 受信 / 👥 SHOT thread 投稿 / @ mention 含む の個別 ON/OFF。</li>
+<li class="text-gray-700 leading-relaxed"><strong>初回ログイン onboarding</strong> — Notification.permission=default の user に紫色 banner で 1 click 許可案内。</li>
+<li class="text-gray-700 leading-relaxed"><strong>silent re-subscribe</strong> — 既許可 user は 起動時に subscription を自動 refresh。</li>
+      </ul>
+    </section>
+    <section class="bg-white rounded-2xl shadow p-6">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">🛠 操作方法</h2>
+      <ol class="list-decimal list-inside space-y-2">
+<li class="text-gray-700 leading-relaxed">sidemenu ⚙️ 通知設定 → 設定画面。</li>
+<li class="text-gray-700 leading-relaxed">経路 / 種別 を checkbox で ON/OFF → 💾 保存 → 即時反映。</li>
+<li class="text-gray-700 leading-relaxed">📣 Web Push を有効化 ボタン → 許可取得 + 購読登録。</li>
+<li class="text-gray-700 leading-relaxed">🧪 テスト送信 → Push + SSE 両方発火 → 結果確認。</li>
+      </ol>
+    </section>
+  </main>
+  <footer class="text-center text-gray-400 text-xs py-6">Score Tutorial — 機能リファレンス</footer>
+  <script src="../js/nav.js"></script>
+</body>
+</html>

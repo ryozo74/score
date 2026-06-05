@@ -11,10 +11,12 @@ _templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/troubleshoot")
 def get_troubleshoot(request: Request, actor_id: str = Depends(get_actor_id)):
-    """技術トラブル一覧 — Lead/Lighting Lead 用 (role 別 scope label)。"""
+    """技術トラブル一覧 — Lead/Admin 用 (role 別 scope label)。
+    殿御命 2026-06-05: lighting_lead → lead, lead → admin に role 名 変更。後方互換のため旧名も許可。"""
     role = get_actor_role(actor_id)
-    if role not in ("lighting_lead", "lead", "kato"):
-        raise HTTPException(status_code=403, detail="lead role required")
+    # 新名 (admin/lead) + 旧名 (lead/lighting_lead/kato) 後方互換
+    if role not in ("admin", "lead", "lighting_lead", "kato"):
+        raise HTTPException(status_code=403, detail="lead/admin role required")
     client = get_calendar_client()
     try:
         user = client.get_me(actor_user_id=actor_id)
@@ -25,9 +27,9 @@ def get_troubleshoot(request: Request, actor_id: str = Depends(get_actor_id)):
         troubles = client.get_troubles(actor_user_id=None) or []
     except Exception:
         troubles = []
-    # scope label (role 別)
-    if role in ("lighting_lead", "kato"):
-        scope_label = "Lighting team"
+    # scope label (role 別) — 新 lead (各分野) or 旧 lighting_lead/kato は team scope
+    if role in ("lead", "lighting_lead", "kato"):
+        scope_label = "Lead チーム scope"
     else:
         scope_label = "プロジェクト全体"
 

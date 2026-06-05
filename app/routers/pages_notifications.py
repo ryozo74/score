@@ -146,7 +146,44 @@ def get_notification_center(request: Request, actor_id: str = Depends(get_actor_
     except Exception:
         messages = []
 
-    decorated = _decorate(notifications)
+    # 殿御命 2026-06-04 (cmd_477): Calendar DM/SHOT thread を 通知化
+    # (Calendar 側 POST /api/notifications 不在 — Phase 2 で nibu 殿正規 EP に切替予定)
+    thread_notifs = []
+    try:
+        if hasattr(client, "get_my_dm_threads"):
+            for t in (client.get_my_dm_threads(actor_user_id=actor_id) or []):
+                if not isinstance(t, dict):
+                    continue
+                parts = t.get("participants") or []
+                is_shot = len(parts) > 2
+                names = [p.get("name") for p in parts if isinstance(p, dict) and p.get("name") and p.get("name") != "Me"]
+                last_msg = t.get("last_message") or ""
+                # title 先頭行 (本文の最初の行が見出し相当)
+                head_line = (last_msg.split("\n")[0] if last_msg else "(メッセージ)").strip()
+                thread_notifs.append({
+                    "id": f"thread_{t.get('thread_id')}",
+                    "thread_id": t.get("thread_id"),
+                    "title": head_line[:80],
+                    "body": last_msg[:300],
+                    "created_at": t.get("updated_at"),
+                    "from_names": names,
+                    "is_shot": is_shot,
+                    "type": "mention" if is_shot else "unread",
+                })
+    except Exception:
+        pass
+
+    # 既存 calendar notification + thread 通知 を合算
+    all_notifs = list(notifications) + thread_notifs
+    decorated = _decorate(all_notifs)
+    # SHOT thread は emoji を 🎬 化 + bg 強調
+    for d in decorated:
+        if d.get("is_shot"):
+            d["emoji"] = "🎬"
+            d["icon_bg"] = "bg-purple-100"
+        elif str(d.get("id","")).startswith("thread_"):
+            d["emoji"] = "💬"
+            d["icon_bg"] = "bg-emerald-100"
     groups = {"unread": [], "mention": [], "notice": []}
     for n in decorated:
         groups[n["category"]].append(n)

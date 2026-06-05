@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Score — 通知設定{% endblock %}
+{% block content %}
+<style>body { background: linear-gradient(135deg,#E0F2FE 0%,#F3E8FF 50%,#FCE7F3 100%); }</style>
+<div class="flex h-screen text-slate-800">
+  {% include '_sidemenu.html' %}
+  <main class="flex-1 ml-24 p-10 overflow-y-auto">
+    <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3 mb-2">⚙️ 通知設定</h1>
+    <p class="text-slate-500 text-sm mb-8">あなたが受け取る通知の経路と種類を設定 (Calendar uid: {{ cuid }})</p>
+
+    <!-- 配信経路 -->
+    <section class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 mb-6 max-w-3xl">
+      <h2 class="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">📡 配信経路</h2>
+      <div class="space-y-3">
+        <label class="flex items-start gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="ch-push" {% if prefs.channels.push %}checked{% endif %} class="mt-1 w-5 h-5">
+          <div class="flex-1">
+            <p class="font-bold text-sm">📣 Web Push (OS 通知)</p>
+            <p class="text-xs text-slate-500">PC/モバイル の OS toast で受信。離席中も通知。要 ブラウザ通知許可 (1 回のみ)。</p>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="ch-sse" {% if prefs.channels.sse %}checked{% endif %} class="mt-1 w-5 h-5">
+          <div class="flex-1">
+            <p class="font-bold text-sm">🟢 在席中 banner (Server-Sent Events)</p>
+            <p class="text-xs text-slate-500">Score を開いている間 画面下に toast 表示。OS 通知許可 不要。</p>
+          </div>
+        </label>
+        <label class="flex items-start gap-3 p-3 rounded-2xl bg-slate-50/60 cursor-not-allowed">
+          <input type="checkbox" id="ch-badge" checked disabled class="mt-1 w-5 h-5">
+          <div class="flex-1">
+            <p class="font-bold text-sm">🔴 sidemenu 赤丸 + 通知センター (常時 ON)</p>
+            <p class="text-xs text-slate-500">画面 badge での視覚通知。設定で OFF 不可 (見落とし防止)。</p>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- 通知種別 -->
+    <section class="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl p-6 mb-6 max-w-3xl">
+      <h2 class="text-lg font-black text-slate-800 mb-4 flex items-center gap-2">🏷️ 通知種別</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label class="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="cat-review" {% if prefs.categories.review_request %}checked{% endif %} class="w-5 h-5">
+          <span class="text-sm font-bold">📌 Review 依頼</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="cat-qc" {% if prefs.categories.qc_request %}checked{% endif %} class="w-5 h-5">
+          <span class="text-sm font-bold">🔍 QC 依頼</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="cat-dm" {% if prefs.categories.dm_received %}checked{% endif %} class="w-5 h-5">
+          <span class="text-sm font-bold">💬 DM 受信</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="cat-shot" {% if prefs.categories.shot_thread_msg %}checked{% endif %} class="w-5 h-5">
+          <span class="text-sm font-bold">👥 SHOT thread 投稿</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/40 cursor-pointer">
+          <input type="checkbox" id="cat-mention" {% if prefs.categories.mention %}checked{% endif %} class="w-5 h-5">
+          <span class="text-sm font-bold">@ mention 含む</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- 保存 + Push 設定 -->
+    <div class="flex gap-3 max-w-3xl">
+      <button id="save-btn" onclick="saveNotifPrefs()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl px-6 py-3 transition shadow">💾 保存</button>
+      <button onclick="scorePushEnable()" class="bg-white/60 hover:bg-white text-slate-700 font-bold rounded-2xl px-6 py-3 transition shadow border border-white/60">📣 Web Push を有効化</button>
+      <button onclick="scorePushTest()" class="bg-white/60 hover:bg-white text-slate-700 font-bold rounded-2xl px-6 py-3 transition shadow border border-white/60">🧪 テスト送信</button>
+      <span id="save-status" class="self-center text-sm text-slate-500"></span>
+    </div>
+    <p id="push-status-line" class="text-xs mt-3 font-bold text-slate-500"></p>
+  </main>
+</div>
+<script src="/static/push-register.js"></script>
+<script>
+async function saveNotifPrefs() {
+  const st = document.getElementById('save-status');
+  st.textContent = '保存中...';
+  const body = {
+    channels: {
+      push: document.getElementById('ch-push').checked,
+      sse: document.getElementById('ch-sse').checked,
+      badge: true,
+    },
+    categories: {
+      review_request: document.getElementById('cat-review').checked,
+      qc_request: document.getElementById('cat-qc').checked,
+      dm_received: document.getElementById('cat-dm').checked,
+      shot_thread_msg: document.getElementById('cat-shot').checked,
+      mention: document.getElementById('cat-mention').checked,
+    },
+  };
+  try {
+    const resp = await fetch('/api/bff/notif/prefs', {method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data = await resp.json();
+    st.textContent = resp.ok ? '✓ 保存しました' : '❌ 保存失敗 HTTP=' + resp.status;
+    st.className = 'self-center text-sm font-bold ' + (resp.ok ? 'text-emerald-600' : 'text-rose-600');
+  } catch (e) {
+    st.textContent = '❌ 例外: ' + e.message;
+    st.className = 'self-center text-sm font-bold text-rose-600';
+  }
+}
+</script>
+{% endblock %}

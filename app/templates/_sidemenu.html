@@ -48,12 +48,15 @@
     <a href="/calendar" class="flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'calendar' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
       <span class="text-xl">📅</span><span>Calendar</span></a>
     <a href="/messages" class="flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'messages' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
-      <span class="text-xl">💬</span><span>Messages</span></a>
+      <span class="text-xl relative inline-block">💬<span id="sidemenu-msg-unread-dot" class="hidden absolute -top-1 -right-2 min-w-[16px] h-4 px-1 bg-rose-500 text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center leading-none">0</span></span>
+      <span>Messages</span></a>
     <a href="/notification_center" class="relative flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'notifications' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
       <span class="text-xl">🔔</span>
       <span>通知</span></a>
     <a href="/exit_report" class="flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'exit_report' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
       <span class="text-xl">🚪</span><span>退勤</span></a>
+    <a href="/settings/notifications" class="flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'settings' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
+      <span class="text-xl">⚙️</span><span>通知設定</span></a>
   </nav>
   <!-- 言語切替 button (sidemenu 内部に統合) -->
   <button onclick="openLanguageModalSidemenu()" title="言語切替" class="mt-2 flex flex-col items-center gap-0.5 py-1.5 w-full rounded-2xl text-slate-500 hover:bg-white/40 text-[9px] transition-all">
@@ -95,4 +98,44 @@
 <script>
 function openLanguageModalSidemenu() { document.getElementById('language-modal-sidemenu').classList.remove('hidden'); }
 function closeLanguageModalSidemenu() { document.getElementById('language-modal-sidemenu').classList.add('hidden'); }
+
+// 殿御命 2026-06-04: sidemenu 💬 アイコンに 全 page 共通 未読 DM 赤丸 badge
+// page load 後 1 回 fetch (cache 無し pass-through・リアルタイム性重視)
+(function(){
+  if (window._sidemenuMsgUnreadInit) return;
+  window._sidemenuMsgUnreadInit = true;
+  async function _updateMsgUnread() {
+    try {
+      const resp = await fetch('/api/bff/dm/threads_meta', { credentials: 'include' });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const threads = data.threads || [];
+      let unread = 0;
+      for (const t of threads) {
+        const lastRead = localStorage.getItem('score_dm_read_' + t.thread_id) || '';
+        if (lastRead < (t.updated_at || '')) unread++;
+      }
+      const dot = document.getElementById('sidemenu-msg-unread-dot');
+      if (!dot) return;
+      if (unread > 0) {
+        dot.textContent = unread > 99 ? '99+' : String(unread);
+        dot.classList.remove('hidden');
+        dot.classList.add('flex');
+      } else {
+        dot.classList.add('hidden');
+        dot.classList.remove('flex');
+      }
+    } catch(e) { /* silent — sidemenu の dot は補助情報 */ }
+  }
+  // page load 後 1 回 (即実行)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _updateMsgUnread);
+  } else {
+    _updateMsgUnread();
+  }
+  // 他 page から戻った時にも更新 (bfcache 対応)
+  window.addEventListener('pageshow', _updateMsgUnread);
+  // messages page で localStorage 既読 mark 後の即時反映用 (custom event)
+  window.addEventListener('score:dm-read-updated', _updateMsgUnread);
+})();
 </script>
