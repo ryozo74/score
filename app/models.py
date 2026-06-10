@@ -48,3 +48,34 @@ class QcDelegation(Base):
     requested_by = Column(String, nullable=True)                     # 依頼発行者 actor
     status = Column(String, nullable=False, default="open")          # open | resolved
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class RoutineLog(Base):
+    """殿御命 2026-06-09: 朝ルーティン (出勤時刻 + 体調 condition) を Score 側にも保存。
+    Calendar 送信に加え Score DB へ記録し、取りこぼしを防ぐ (表示は後日でもデータは残す)。"""
+    __tablename__ = "routine_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=True, index=True)   # Calendar cuid (or actor)
+    user_name = Column(String, nullable=True)
+    condition = Column(String, nullable=True)             # 体調 (🤩🙂🥱🤒 等)
+    date = Column(String, nullable=True, index=True)       # YYYY-MM-DD
+    submitted_at = Column(String, nullable=True)           # 出勤時刻 (ISO+TZ)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TimecardLog(Base):
+    """殿御命 2026-06-09: 退勤打刻を Score 側にも保存 (Calendar に加え記録保持)。"""
+    __tablename__ = "timecard_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, nullable=True, index=True)
+    user_name = Column(String, nullable=True)
+    date = Column(String, nullable=True, index=True)
+    clock_out_time = Column(String, nullable=True)
+    mode = Column(String, nullable=True)
+    blocker = Column(Text, nullable=True)                  # 当日の課題/詰まり
+    handover = Column(Text, nullable=True)                 # 申し送り
+    next_priority = Column(Text, nullable=True)            # 翌日の優先
+    raw_json = Column(Text, nullable=True)                 # 元 body 全体 (保険)
+    created_at = Column(DateTime, default=datetime.utcnow)

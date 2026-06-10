@@ -312,6 +312,32 @@ def post_timecard_clock_out(
     actor_id: str = Depends(get_actor_id),
 ):
     client = get_calendar_client()
+    # 殿御命 2026-06-09: 退勤(申し送り含む)を Score DB にも保存 (Calendar 送信前に記録=取りこぼし防止)
+    try:
+        import json as _json2, sys as _s2
+        from datetime import datetime as _dt2, timezone as _tz2, timedelta as _td2
+        from app.database import SessionLocal as _SL
+        from app.models import TimecardLog as _TL
+        from app.adapters.calendar_client import _to_calendar_uid as _tcu
+        _cuid = _tcu(actor_id)
+        _date = (body.get("date") or (_dt2.now(_tz2(_td2(hours=9))).date().isoformat()))
+        _db = _SL()
+        try:
+            _db.add(_TL(
+                user_id=str(_cuid) if _cuid is not None else str(actor_id),
+                date=str(_date)[:10] or None,
+                clock_out_time=str(body.get("clock_out_time") or "")[:40] or None,
+                mode=str(body.get("mode") or "")[:40] or None,
+                blocker=str(body.get("blocker") or "")[:5000] or None,
+                handover=str(body.get("handover") or "")[:5000] or None,
+                next_priority=str(body.get("next_priority") or "")[:5000] or None,
+                raw_json=_json2.dumps(body, ensure_ascii=False)[:20000],
+            ))
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as _e:
+        print(f"[timecard_log] skip: {_e}", file=_s2.stderr)
     result = client.post_timecard_clock_out(body, actor_user_id=actor_id)
     return JSONResponse(content=result, headers={"X-Actor-User-Id": actor_id})
 
@@ -330,6 +356,25 @@ def post_routines(
     _jst = _tz(_td(hours=9))
     if not body.get("submitted_at"):
         body["submitted_at"] = _dt.now(_jst).isoformat(timespec="seconds")
+    # 殿御命 2026-06-09: 体調含む routine を Score DB にも保存 (Calendar 送信前に記録=取りこぼし防止)
+    try:
+        from app.database import SessionLocal as _SL
+        from app.models import RoutineLog as _RL
+        from app.adapters.calendar_client import _to_calendar_uid as _tcu
+        _cuid = _tcu(actor_id)
+        _db = _SL()
+        try:
+            _db.add(_RL(
+                user_id=str(_cuid) if _cuid is not None else str(actor_id),
+                condition=str(body.get("condition") or "")[:20] or None,
+                date=str(body.get("date") or "")[:10] or None,
+                submitted_at=str(body.get("submitted_at") or "")[:40] or None,
+            ))
+            _db.commit()
+        finally:
+            _db.close()
+    except Exception as _e:
+        import sys as _s; print(f"[routine_log] skip: {_e}", file=_s.stderr)
     result = client.post_routines(body, actor_user_id=actor_id)
     # cookie set (次 5am JST まで)
     from app.auth import get_next_5am_jst
