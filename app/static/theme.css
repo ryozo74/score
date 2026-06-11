@@ -58,23 +58,22 @@ html.dark .bg-indigo-600 { background-color: #2563eb !important; }
 .via-purple-300, .via-purple-500, .via-violet-300 { --tw-gradient-via: #60a5fa !important; }
 
 /* ── Light: 淡色グラデ背景 (青→紫→桃) → cobalt系の淡いトーン (taste: 単一accent・脱pastel・但し色味は残す) ── */
-html:not(.dark) .from-\[\#E0F2FE\] { --tw-gradient-from: #cfe0ff var(--tw-gradient-from-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via, #dde9ff), var(--tw-gradient-to) !important; }
+html:not(.dark) .from-\[\#E0F2FE\] { --tw-gradient-from: #cfe0ff var(--tw-gradient-from-position) !important; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via, #dde9ff), var(--tw-gradient-to) !important; background-attachment: fixed !important; background-size: 100vw 100vh !important; background-position: 0 0 !important; }
 html:not(.dark) .via-\[\#F3E8FF\] { --tw-gradient-via: #dde9ff !important; }
 html:not(.dark) .to-\[\#FCE7F3\] { --tw-gradient-to: #b3ccff var(--tw-gradient-to-position) !important; }
 /* dark でも同グラデは near-black に (保険) */
-html.dark .from-\[\#E0F2FE\], html.dark .via-\[\#F3E8FF\], html.dark .to-\[\#FCE7F3\] { --tw-gradient-from: #070b14 !important; --tw-gradient-via: #0b1120 !important; --tw-gradient-to: #1e293b !important; }
+html.dark .from-\[\#E0F2FE\], html.dark .via-\[\#F3E8FF\], html.dark .to-\[\#FCE7F3\] { --tw-gradient-from: #070b14 !important; --tw-gradient-via: #0b1120 !important; --tw-gradient-to: #1e293b !important; background-attachment: fixed !important; background-size: 100vw 100vh !important; background-position: 0 0 !important; }
 
 /* ── Light: dark に倣い glass を統一 (殿御命 2026-06-10) — 白ガラスを半透明にし cobalt グラデを透かす ── */
 /* body に cobalt 系グラデを fixed で (独立body/base継承どちらでも効く) */
-html:not(.dark), html:not(.dark) body { background: linear-gradient(135deg, #cfe0ff 0%, #dde9ff 52%, #b3ccff 100%) fixed !important; }
-html:not(.dark) body { background-image: linear-gradient(135deg, #cfe0ff 0%, #dde9ff 52%, #b3ccff 100%) !important; background-attachment: fixed !important; }
+/* light も body 上書きせず bg-gradient-to-br クラス(下の remap)に統一 */
 html:not(.dark) [class*="bg-white"] { background-color: rgba(255, 255, 255, 0.52) !important; }
 html:not(.dark) .score-sidemenu { background-color: rgba(255, 255, 255, 0.42) !important; }
 html:not(.dark) main,
-html:not(.dark) .ml-24.h-screen.overflow-y-auto,
+html:not(.dark) .ml-24.overflow-y-auto,
 html:not(.dark) .ml-24.min-h-screen { background-color: rgba(255, 255, 255, 0.30) !important; }
 /* nested main は二重オーバーレイ回避で透過 */
-html:not(.dark) .ml-24.h-screen.overflow-y-auto main,
+html:not(.dark) .ml-24.overflow-y-auto main,
 html:not(.dark) .ml-24.min-h-screen main { background-color: transparent !important; }
 
 /* ── redesign-skill: distinctive font + 見出しタイポ (殿御命 2026-06-10) ── */

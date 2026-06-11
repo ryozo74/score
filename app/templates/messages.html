@@ -8,10 +8,10 @@
   .bubble-left { border-radius: 1rem 1rem 1rem 0.25rem; }
   .bubble-right { border-radius: 1rem 1rem 0.25rem 1rem; }
   .msg-area { scroll-behavior: smooth; }
-  body { background: linear-gradient(135deg, #E0F2FE 0%, #F3E8FF 50%, #FCE7F3 100%); }
 </style>
 
-<div class="flex overflow-hidden h-screen text-slate-800">
+{# 殿御命 2026-06-11: body 直書きグラデを廃し bg-gradient-to-br クラスへ (theme.css の dark/light remap・fixed に統一) #}
+<div class="flex overflow-hidden h-screen text-slate-800 bg-gradient-to-br from-[#E0F2FE] via-[#F3E8FF] to-[#FCE7F3]">
 
   {% include '_sidemenu.html' %}
 

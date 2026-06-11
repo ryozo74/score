@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Score — 通知設定{% endblock %}
 {% block content %}
-<style>body { background: linear-gradient(135deg,#E0F2FE 0%,#F3E8FF 50%,#FCE7F3 100%); }</style>
-<div class="flex h-screen text-slate-800">
+{# 殿御命 2026-06-11: body 直書きグラデを廃し bg-gradient-to-br クラスへ (dark/light remap・fixed に統一) #}
+<div class="flex h-screen text-slate-800 bg-gradient-to-br from-[#E0F2FE] via-[#F3E8FF] to-[#FCE7F3]">
   {% include '_sidemenu.html' %}
   <main class="flex-1 ml-24 p-10 overflow-y-auto">
     <h1 class="text-3xl font-black text-slate-800 flex items-center gap-3 mb-2">⚙️ 通知設定</h1>

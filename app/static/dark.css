@@ -4,16 +4,17 @@
    注: 属性セレクタで bg-white/40 等の opacity 変種もまとめて捕捉。 */
 
 /* ベース背景: body に cobalt-navy グラデを fixed で (暗い側も near-black でなく視認できる dark-cobalt に・空き領域でも背景が見える・殿御命 2026-06-11) */
-html.dark, html.dark body { background: linear-gradient(135deg, #0a1530 0%, #163a78 50%, #1f55a0 100%) fixed !important; color: #e2e8f0; }
-html.dark body { background-image: linear-gradient(135deg, #0a1530 0%, #163a78 50%, #1f55a0 100%) !important; background-attachment: fixed !important; background-size: 100vw 100vh !important; background-position: 0 0 !important; }
+/* body 上書きはせず bg-gradient-to-br クラス(theme.css remap)に統一 (グラデが見える状態に復帰) */
+html.dark { color: #e2e8f0; }
+html.dark body { color: #e2e8f0; }
 /* 全画面 wrapper は透過 → 固定グラデを見せる */
 html.dark body > .min-h-screen { background-color: transparent !important; }
 /* メイン/content wrapper を半透明 glass で統一 → 固定グラデを透かす (main 以外の div wrapper も含め全ページ揃える) */
 html.dark main,
-html.dark .ml-24.h-screen.overflow-y-auto,
+html.dark .ml-24.overflow-y-auto,
 html.dark .ml-24.min-h-screen { background-color: rgba(13, 20, 38, 0.28) !important; }
 /* content wrapper の中に nested main がある構造 (shot_detail/task) は二重オーバーレイを避け透過 → dashboard と同じ単一 0.28 に */
-html.dark .ml-24.h-screen.overflow-y-auto main,
+html.dark .ml-24.overflow-y-auto main,
 html.dark .ml-24.min-h-screen main { background-color: transparent !important; }
 
 /* 白系サーフェス (カード/入力/ガラス) → よく透けるダークガラス (背景グラデを透かす glassmorphism) */
