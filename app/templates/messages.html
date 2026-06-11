@@ -648,7 +648,7 @@ function deleteThread(id, ev) {
   if (id === activeThread) {
     activeThread = null;
     const area = document.getElementById('conv-messages');
-    if (area) area.innerHTML = '<p class="text-center text-sm text-slate-400 mt-8">スレッドを選択してください</p>';
+    if (area) area.innerHTML = '<p class="text-center text-sm text-slate-700 mt-8">スレッドを選択してください</p>';
   }
   _updateUnreadBadge();
 }
@@ -795,7 +795,7 @@ showThread('shot001');
 {% else %}
 // real Calendar 接続時は thread 未選択 → 右ペインに prompt 表示 (リロード時の初期状態)
 const _convArea = document.getElementById('conv-messages');
-if (_convArea) _convArea.innerHTML = '<div class="text-center text-slate-400 py-16 px-6"><p class="text-5xl mb-3">💬</p><p class="text-sm font-bold">thread を選択してください</p><p class="text-xs mt-2">左の thread 一覧から選ぶか・右上「✏️ 新規DM」 で開始</p></div>';
+if (_convArea) _convArea.innerHTML = '<div class="text-center text-slate-700 py-16 px-6"><p class="text-5xl mb-3">💬</p><p class="text-sm font-bold text-slate-700">thread を選択してください</p><p class="text-xs mt-2 text-slate-700">左の thread 一覧から選ぶか・右上「✏️ 新規DM」 で開始</p></div>';
 const _convTitle = document.getElementById('conv-title');
 if (_convTitle) _convTitle.textContent = '';
 const _convMembers = document.getElementById('conv-members');

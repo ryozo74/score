@@ -46,9 +46,9 @@
 })();
 </script>
 <aside class="score-sidemenu fixed top-0 left-0 w-24 h-screen bg-white/30 backdrop-blur-xl border-r border-white/60 flex flex-col items-center py-4 gap-1 flex-shrink-0 z-20">
-  <img src="/static/splash.png" alt="Score" class="w-16 h-auto mb-1 select-none" draggable="false" onerror="this.style.display='none';this.nextElementSibling && this.nextElementSibling.style.removeProperty('display');">
-  <div class="text-2xl mb-1" style="display:none;">🎬</div>
-  <p class="text-[9px] font-black text-indigo-600 tracking-widest mb-3" translate="no">Score</p>
+  {# 殿御命 2026-06-11: ロゴを login の「S.」マークに統一 (文字なし) #}
+  <img src="/static/splash.png" alt="Score" class="w-16 h-auto mb-3 mt-1 select-none" draggable="false">
+
   <nav class="flex flex-col items-center gap-1 w-full px-2 flex-1">
     <a href="/dashboard" class="flex flex-col items-center gap-0.5 py-2.5 w-full rounded-2xl {% if active == 'dashboard' %}bg-indigo-100 text-indigo-600 font-bold{% else %}text-slate-500 hover:bg-white/40{% endif %} text-xs transition-all">
       <span class="text-xl">🏠</span><span>ダッシュボード</span></a>
